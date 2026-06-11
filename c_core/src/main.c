@@ -1,6 +1,7 @@
-#include <stdio.h>
+c#include <stdio.h>
 #include "vector.h"
 #include "trajectory.h"
+#include "planet.h" 
 
 int main(void) {
     vec_test();
