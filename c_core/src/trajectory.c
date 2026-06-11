@@ -49,4 +49,6 @@ void traj_test(void){
 
     traj_print_first(&traj, 2);
     traj_free(&traj);
+
+    printf("====================\n");
 }

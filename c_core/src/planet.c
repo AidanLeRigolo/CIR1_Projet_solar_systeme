@@ -52,4 +52,6 @@ void planet_test(void){
     traj_print_first(&earth.trajectory, 1);
 
     planet_free(&earth);
+
+    printf("====================\n");
 }
