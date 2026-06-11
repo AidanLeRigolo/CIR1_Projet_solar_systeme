@@ -1,4 +1,4 @@
-#ifndef VECTOR_H
+#ifndef VECTOR_H /* ifndef check si VECTOR_H est deja definis*/
 #define VECTOR_H
 
 typedef struct {

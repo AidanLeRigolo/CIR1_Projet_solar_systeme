@@ -27,9 +27,9 @@ void vec_test(void) {
     Vector3 a = {1.0, 2.0, 0.0};
     Vector3 b = {3.0, 4.0, 0.0};
 
-    vec_print(vec_add(a, b),   "add");      // attendu : (4, 6, 0)
-    vec_print(vec_sub(a, b),   "sub");      // attendu : (-2, -2, 0)
-    vec_print(vec_scale(a, 3), "scale*3");  // attendu : (3, 6, 0)
+    vec_print(vec_add(a, b),   "add");       // attendu : (4, 6, 0)
+    vec_print(vec_sub(a, b),   "sub");       // attendu : (-2, -2, 0)
+    vec_print(vec_scale(a, 3), "scale*3");   // attendu : (3, 6, 0)
     printf("norm(b) = %.4f\n", vec_norm(b)); // attendu : 5.0000
     printf("================\n");
 }
