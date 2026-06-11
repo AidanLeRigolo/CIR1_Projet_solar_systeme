@@ -32,7 +32,7 @@ void traj_free(Trajectory *t) {
 }
 
 void traj_print_first(Trajectory *t, int n) {
-    printf("=== Trajectoire : %s (%d points) ===\n", t->name, t->count);
+    printf("=== Trajectory : %s (%d points) ===\n", t->name, t->count);
     for (int i = 0; i < n && i < t->count; i++) {
         point_print(t->points[i]);
     }

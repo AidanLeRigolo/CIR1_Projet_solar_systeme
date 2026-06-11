@@ -5,6 +5,7 @@
 int main(void) {
     vec_test();
     traj_test();
+    planet_test();
     
     return 0;
 }

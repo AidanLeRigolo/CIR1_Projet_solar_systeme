@@ -19,5 +19,6 @@ Planet planet_create    (const char *name, double mass, double perihelion, int c
 void   planet_init_point(Planet *p);
 void   planet_free      (Planet *p);
 void   planet_print_info(Planet *p);
+void   planet_test(void);
 
 #endif

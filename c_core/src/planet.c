@@ -33,9 +33,23 @@ void planet_free(Planet *p) {
 }
 
 void planet_print_info(Planet *p) {
-    printf("=== Planète : %s ===\n", p->name);
-    printf("  masse      : %.3e kg\n", p->mass);
-    printf("  périhélie  : %.3e m\n",  p->perihelion);
+    printf("=== Planet : %s ===\n", p->name);
+    printf("  mass      : %.3e kg\n", p->mass);
+    printf("  perihelie  : %.3e m\n",  p->perihelion);
     printf("  v0         : %.3e m/s\n",
         p->trajectory.points[0].velocity.y);
+}
+
+void planet_test(void){
+    // Earth's Real Constants :
+    //   mass      : 5.972e24 kg  (source : NASA fact sheet)
+    //   périhélie  : 1.471e11 m   (source : Wikipedia "périhélie")
+
+    Planet earth = planet_create("earth", 5.972e24, 1.471e11, 100000);
+    planet_init_point(&earth);
+    planet_print_info(&earth);
+
+    traj_print_first(&earth.trajectory, 1);
+
+    planet_free(&earth);
 }
