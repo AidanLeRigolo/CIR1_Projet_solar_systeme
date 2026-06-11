@@ -4,11 +4,12 @@
 
 #define TRAJ_CAPACITY_DEFAULT 100000
 
+// list of points on a planet's trajectory
 typedef struct {
     char   name[64];
     Point *points;
-    int    count;
-    int    capacity;
+    int    count;      // number of points in the list
+    int    capacity;   // max number of points in the list
 } Trajectory;
 
 Trajectory traj_create(const char *name, int capacity);

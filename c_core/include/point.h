@@ -2,6 +2,7 @@
 #define POINT_H
 #include "vector.h"
 
+// 3D point
 typedef struct {
     Vector3 position;
     Vector3 velocity;
