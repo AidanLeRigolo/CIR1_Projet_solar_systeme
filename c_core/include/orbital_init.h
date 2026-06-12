@@ -1,6 +1,5 @@
 #ifndef ORBITAL_INIT_H
 #define ORBITAL_INIT_H
-
 #include "body.h"
 #include "physics.h"
 
