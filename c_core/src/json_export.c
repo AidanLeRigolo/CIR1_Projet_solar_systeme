@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "json_export.h"
 
-#include "constants.h" // coorection a revoir
+#include "constants.h" // correction a revoir
 #include "physics.h"
 #include "orbital_init.h"
 
@@ -13,8 +13,7 @@ static void write_point(FILE *f, Point *p, int is_last) {
     fprintf(f, is_last ? "\n" : ",\n");
 }
 
-void json_write_trajectory_sampled(FILE *f, Trajectory *t,
-                                    int sample_every, int is_last) {
+void json_write_trajectory_sampled(FILE *f, Trajectory *t, int sample_every, int is_last) {
     fprintf(f, "\"%s\" : [\n", t->name);
 
     // count how many points will actually be written
@@ -33,22 +32,19 @@ void json_write_trajectory_sampled(FILE *f, Trajectory *t,
            t->name, written, sample_every);
 }
 
-void json_export_all_sampled(const char *filename,
-                              Body **bodies, int n_bodies,
-                              int sample_every) {
+// export in CIR1_Projet/web/data
+void json_export_all_sampled(const char *filename, Body **bodies, int n_bodies, int sample_every) {
     FILE *f = fopen(filename, "w");
     if (f == NULL) {
         fprintf(stderr, "Error : cannot open file %s\n", filename);
         return;
     }
 
-    printf("Exporting to %s (sample every %d points)...\n",
-           filename, sample_every);
+    printf("Exporting to %s (sample every %d points)...\n", filename, sample_every);
 
     fprintf(f, "{\n");
     for (int i = 0; i < n_bodies; i++) {
-        json_write_trajectory_sampled(f, &bodies[i]->trajectory,
-                                       sample_every, i == n_bodies - 1);
+        json_write_trajectory_sampled(f, &bodies[i]->trajectory, sample_every, i == n_bodies - 1);
     }
     fprintf(f, "}\n");
 

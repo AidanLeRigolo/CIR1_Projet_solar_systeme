@@ -1,6 +1,7 @@
 #include <math.h>
 #include "orbital_init.h"
 
+// place the planet in the system
 void init_planet_at_perihelion(Body *b, double perihelion) {
     Vector3 pos = {perihelion, 0.0, 0.0};
 
@@ -11,6 +12,7 @@ void init_planet_at_perihelion(Body *b, double perihelion) {
     body_init_point(b, pos, vel);
 }
 
+// place satellite at the right of the planet
 void init_satellite_orbit(Body *b, Body *parent, double orbit_radius) {
     Point parent_point = parent->trajectory.points[parent->trajectory.count - 1];
     Vector3 parent_pos = parent_point.position;

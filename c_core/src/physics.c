@@ -8,9 +8,7 @@
 // CORE
 // ─────────────────────────────────────────────
 
-Vector3 compute_acceleration_from(Vector3 pos_body,
-                                   Vector3 pos_attractor,
-                                   double  mass_attractor) {
+Vector3 compute_acceleration_from(Vector3 pos_body, Vector3 pos_attractor, double  mass_attractor) {
     Vector3 r_vec  = vec_sub(pos_body, pos_attractor);
     double  r      = vec_norm(r_vec);
     double  factor = -(G * mass_attractor) / (r * r * r);
@@ -18,9 +16,7 @@ Vector3 compute_acceleration_from(Vector3 pos_body,
 }
 
 // Sum of accelerations from all attractors (superposition principle)
-Vector3 total_acceleration(Vector3 pos_body,
-                            Body  **attractors,
-                            int     n_attractors) {
+Vector3 total_acceleration(Vector3 pos_body, Body  **attractors, int  n_attractors) {
     Vector3 acc = {0.0, 0.0, 0.0};
     for (int i = 0; i < n_attractors; i++) {
         Point last = attractors[i]->trajectory.points[
@@ -36,6 +32,7 @@ Vector3 total_acceleration(Vector3 pos_body,
 // STEP FUNCTIONS (internal)
 // ─────────────────────────────────────────────
 
+// acceleration first, (acceleration, position, vitesse)
 static void step_euler(Point *cur, Point *next,
                         Body **attractors, int n_attractors, double dt) {
     Vector3 acc     = total_acceleration(cur->position, attractors, n_attractors);
@@ -43,9 +40,8 @@ static void step_euler(Point *cur, Point *next,
     next->velocity  = vec_add(cur->velocity, vec_scale(acc, dt));
 }
 
-static void step_euler_asymmetric(Point *cur, Point *next,
-                                   Body **attractors, int n_attractors,
-                                   double dt) {
+// position first, (position, acceleration, vitesse)
+static void step_euler_asymmetric(Point *cur, Point *next, Body **attractors, int n_attractors, double dt) {
     // position first
     next->position  = vec_add(cur->position, vec_scale(cur->velocity, dt));
     // acceleration from new position
@@ -53,8 +49,8 @@ static void step_euler_asymmetric(Point *cur, Point *next,
     next->velocity  = vec_add(cur->velocity, vec_scale(acc, dt));
 }
 
-static void step_rk2(Point *cur, Point *next,
-                      Body **attractors, int n_attractors, double dt) {
+// euler methode in 2 steps
+static void step_rk2(Point *cur, Point *next, Body **attractors, int n_attractors, double dt) {
     Vector3 k1_r = vec_scale(cur->velocity, dt);
     Vector3 k1_v = vec_scale(total_acceleration(cur->position,
                                                   attractors, n_attractors), dt);
@@ -70,9 +66,8 @@ static void step_rk2(Point *cur, Point *next,
     next->velocity = vec_add(cur->velocity,  k2_v);
 }
 
-static void step_rk2_symplectic(Point *cur, Point *next,
-                                  Body **attractors, int n_attractors,
-                                  double dt) {
+// euler symplectic in 2 steps
+static void step_rk2_symplectic(Point *cur, Point *next, Body **attractors, int n_attractors, double dt) {
     // half step : position first (asymmetric logic)
     Vector3 half_pos = vec_add(cur->position,
                                 vec_scale(cur->velocity, dt * 0.5));
@@ -90,8 +85,7 @@ static void step_rk2_symplectic(Point *cur, Point *next,
 // PUBLIC API
 // ─────────────────────────────────────────────
 
-void body_step(Body *b, Body **attractors, int n_attractors,
-               double dt, SimMethod method) {
+void body_step(Body *b, Body **attractors, int n_attractors, double dt, SimMethod method) {
     Point cur  = b->trajectory.points[b->trajectory.count - 1];
     Point next;
     next.time  = cur.time + 1;
@@ -125,13 +119,12 @@ void body_simulate(Body *b, Body **attractors, int n_attractors,
 // System simulation : each body is attracted by all others
 // Uses a snapshot of positions at the start of each step
 // to avoid using partially-updated positions mid-step
-void system_simulate(Body **bodies, int n_bodies,
-                     double dt, int n_steps, SimMethod method) {
+void system_simulate(Body **bodies, int n_bodies, double dt, int n_steps, SimMethod method) {
     for (int step = 0; step < n_steps; step++) {
         for (int i = 0; i < n_bodies; i++) {
             // build attractor list = all bodies except self
             Body **attractors = malloc(sizeof(Body *) * (n_bodies - 1));
-            int    k          = 0;
+            int k  = 0;
             for (int j = 0; j < n_bodies; j++) {
                 if (j != i) attractors[k++] = bodies[j];
             }
