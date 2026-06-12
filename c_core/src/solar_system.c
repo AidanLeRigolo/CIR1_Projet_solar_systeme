@@ -8,8 +8,8 @@
 
 // dt = 1800s (30 min) — precise enough for Phobos (7h30 orbit)
 // 5 years at 30-min steps
-#define DT       1800.0
-#define N_STEPS  (48 * 365 * 5)    // 87600 steps
+#define DT       86400.0            // 1800.0
+#define N_STEPS  (48 * 365 * 5)     // 87600 steps = (48 * 365 * 5)
 #define SAMPLE   48                 // export 1 point per day
 
 void run_solar_system(const char *output_file) {
