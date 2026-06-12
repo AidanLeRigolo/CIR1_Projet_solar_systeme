@@ -1,22 +1,35 @@
 #ifndef PHYSICS_H
 #define PHYSICS_H
+#include "body.h"
 
-#include "planet.h"
+#define G     6.67408e-11
+#define M_SUN 1.989e30
 
-Vector3 compute_acceleration(Vector3 position);
+// Method selector
+typedef enum {
+    METHOD_EULER,
+    METHOD_EULER_ASYMMETRIC,
+    METHOD_RK2,
+    METHOD_RK2_SYMPLECTIC
+} SimMethod;
 
-// Euler simple
-void euler_step                (Planet *p, double dt);
-void simulate_euler            (Planet *p, double dt, int n_steps);
+// Core : acceleration on pos_body from one attractor
+Vector3 compute_acceleration_from(Vector3 pos_body, Vector3 pos_attractor, double  mass_attractor);
 
-// Euler asymmetric
-void euler_asymmetric_step     (Planet *p, double dt);
-void simulate_euler_asymmetric (Planet *p, double dt, int n_steps);
+// Core : total acceleration from multiple attractors (superposition)
+Vector3 total_acceleration(Vector3  pos_body, Body  **attractors, int  n_attractors);
 
-// Runge-Kutta 2
-void rk2_step                  (Planet *p, double dt);
-void simulate_rk2              (Planet *p, double dt, int n_steps);
+// Single step for one body given its attractors and chosen method
+void body_step(Body *b, Body **attractors, int n_attractors, double dt, SimMethod method);
 
-void physics_test              (void);
+// Full simulation for one body
+void body_simulate(Body *b, Body **attractors, int n_attractors, double dt, int n_steps, SimMethod method);
+
+// System simulation : all bodies attract each other
+// Each body is attracted by all other bodies in the system
+void system_simulate(Body **bodies, int n_bodies, double dt, int n_steps, SimMethod method);
+
+const char *method_name(SimMethod method);
+void physics_test(void);
 
 #endif
