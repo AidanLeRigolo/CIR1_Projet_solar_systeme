@@ -1,17 +1,17 @@
 #ifndef JSON_EXPORT_H
 #define JSON_EXPORT_H
+
 #include <stdio.h>
 #include "body.h"
 
-// Write one trajectory to an open file
+// Write one trajectory to an open file (every sample_every points)
 // is_last : 1 if this is the last trajectory (no trailing comma)
-void json_write_trajectory(FILE *f, Trajectory *t, int is_last);
+void json_write_trajectory_sampled(FILE *f, Trajectory *t, int sample_every, int is_last);
 
 // Export all bodies to a single JSON file
-// bodies   : array of Body pointers
-// n_bodies : number of bodies
-// filename : output file path (ex: "../web/data/trajectoire.json")
-void json_export_all(const char *filename, Body **bodies, int n_bodies);
+// sample_every : write 1 point every N computed points
+//   ex: dt=1800s, sample_every=48 → 1 point per day in the JSON
+void json_export_all_sampled(const char *filename, Body **bodies, int n_bodies, int sample_every);
 
 void json_test(void);
 
