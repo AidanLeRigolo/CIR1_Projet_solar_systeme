@@ -33,3 +33,14 @@ Conclusion pour l'oral
 
 Pour ce projet, Euler asymétrique est le meilleur compromis : même coût de calcul qu'Euler simple, stabilité à long terme excellente, et résultats quasi identiques à RK2 symplectique sur les durées simulées. RK2 symplectique est la méthode la plus rigoureuse mais son avantage ne devient visible que sur des simulations de plusieurs années ou des orbites très excentriques comme les comètes.
 Une phrase clé à retenir : "Euler asymétrique est un intégrateur symplectique d'ordre 1 — il conserve l'énergie du système sur le long terme malgré sa simplicité, ce qui en fait un choix standard en simulation physique."
+
+
+INFO CALUCLUE TRAJECTOIR ELLIPTIQUES
+
+Le problème de la vitesse initiale
+Pour les planètes on utilisait v0 = sqrt(G * M_SUN / r) — formule d'orbite circulaire. Pour Halley c'est une ellipse très allongée, cette formule est fausse. Il faut la formule vis-viva :
+v = sqrt( G * M_SUN * (2/r - 1/a) )
+
+où :
+  r = distance au point courant (périhélie ici)
+  a = demi grand-axe = (périhélie + aphélie) / 2

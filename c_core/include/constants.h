@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+// Source : NASA planetary fact sheets
+
 // ── Physical constants ──────────────────────────────
 #define G     6.67408e-11   // gravitational constant (N.m².kg⁻²)
 #define M_SUN 1.989e30      // Sun mass (kg)
@@ -24,6 +26,18 @@
 #define PERI_SATURN  1.353e12
 #define PERI_URANUS  2.742e12
 #define PERI_NEPTUNE 4.445e12
+
+// Orbital inclinations relative to ecliptic plane (radians)
+#define DEG_TO_RAD   0.017453292519943  // pi / 180
+
+#define INCL_MERCURY (7.005  * DEG_TO_RAD)
+#define INCL_VENUS   (3.395  * DEG_TO_RAD)
+#define INCL_EARTH   (0.000  * DEG_TO_RAD)  // reference plane
+#define INCL_MARS    (1.850  * DEG_TO_RAD)
+#define INCL_JUPITER (1.305  * DEG_TO_RAD)
+#define INCL_SATURN  (2.485  * DEG_TO_RAD)
+#define INCL_URANUS  (0.773  * DEG_TO_RAD)
+#define INCL_NEPTUNE (1.770  * DEG_TO_RAD)
 
 // ── Satellites : mass (kg) ───────────────────────────
 
@@ -79,4 +93,12 @@
 #define R_TRITON     3.548e8
 #define R_PROTEUS    1.176e8
 
+// Halley's comet
+#define M_HALLEY       2.2e14          // mass (kg)
+
+#define PERI_HALLEY    8.766e10        // perihelion distance (m) — 0.586 AU
+#define APHA_HALLEY    2.667e12        // aphelion distance (m)  — 17.8 AU
+#define ECC_HALLEY     0.967           // eccentricity
+
+#define INCL_HALLEY  (162.26 * DEG_TO_RAD)  // retrograde orbit
 #endif

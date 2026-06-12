@@ -8,8 +8,8 @@
 
 // dt = 1800s (30 min) — precise enough for Phobos (7h30 orbit)
 // 5 years at 30-min steps
-#define DT       86400.0            // 1800.0
-#define N_STEPS  (365 * 165)     // 87600 steps = (48 * 365 * 5)
+#define DT       1800.0            // 1800.0
+#define N_STEPS  (48 * 365 * 5)     // 87600 steps = (48 * 365 * 5)
 #define SAMPLE   48                 // export 1 point per day
 
 void run_solar_system(const char *output_file) {
@@ -54,17 +54,28 @@ void run_solar_system(const char *output_file) {
     Body triton  = body_create("triton",  M_TRITON,  cap);
     Body proteus = body_create("proteus", M_PROTEUS, cap);
 
+    // 10 years visible — enough to see the elongated trajectory
+    // Halley needs smaller dt for accuracy near perihelion
+    // We keep dt=1800s but RK2 symplectic handles it well enough
+    #define N_HALLEY  (48 * 365 * 10)   // 10 years at 30-min steps
+
+    Body halley = body_create("halley", M_HALLEY, N_HALLEY + 2);
+    init_elliptic_orbit(&halley, PERI_HALLEY, APHA_HALLEY, INCL_HALLEY);
+
+    Body *sun_halley = &sun;
+    body_simulate(&halley, &sun_halley, 1,DT, N_HALLEY, METHOD_RK2_SYMPLECTIC);
+
     // ── Initial conditions ───────────────────────────
     body_init_point(&sun, sun_pos, zero);
 
-    init_planet_at_perihelion(&mercury, PERI_MERCURY);
-    init_planet_at_perihelion(&venus,   PERI_VENUS);
-    init_planet_at_perihelion(&earth,   PERI_EARTH);
-    init_planet_at_perihelion(&mars,    PERI_MARS);
-    init_planet_at_perihelion(&jupiter, PERI_JUPITER);
-    init_planet_at_perihelion(&saturn,  PERI_SATURN);
-    init_planet_at_perihelion(&uranus,  PERI_URANUS);
-    init_planet_at_perihelion(&neptune, PERI_NEPTUNE);
+    init_planet_at_perihelion(&mercury, PERI_MERCURY, INCL_MERCURY);
+    init_planet_at_perihelion(&venus,   PERI_VENUS,   INCL_VENUS);
+    init_planet_at_perihelion(&earth,   PERI_EARTH,   INCL_EARTH);
+    init_planet_at_perihelion(&mars,    PERI_MARS,    INCL_MARS);
+    init_planet_at_perihelion(&jupiter, PERI_JUPITER, INCL_JUPITER);
+    init_planet_at_perihelion(&saturn,  PERI_SATURN,  INCL_SATURN);
+    init_planet_at_perihelion(&uranus,  PERI_URANUS,  INCL_URANUS);
+    init_planet_at_perihelion(&neptune, PERI_NEPTUNE, INCL_NEPTUNE);
 
     init_satellite_orbit(&moon,    &earth,   R_MOON);
     init_satellite_orbit(&phobos,  &mars,    R_PHOBOS);
@@ -89,7 +100,8 @@ void run_solar_system(const char *output_file) {
         &io, &europa,
         &titan, &rhea,
         &titania, &oberon,
-        &triton, &proteus
+        &triton, &proteus,
+        &halley
     };
     int n_bodies = 20;
 
@@ -122,6 +134,7 @@ void run_solar_system(const char *output_file) {
     body_free(&titan);   body_free(&rhea);
     body_free(&titania); body_free(&oberon);
     body_free(&triton);  body_free(&proteus);
+    body_free(&halley);
 
     printf("=== Done ===\n");
 }
