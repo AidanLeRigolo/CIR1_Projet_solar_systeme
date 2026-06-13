@@ -64,7 +64,7 @@ void json_test(void) {
     Body moon  = body_create("moon",  M_MOON,  n_steps + 2);
 
     body_init_point(&sun, sun_pos, (Vector3){0, 0, 0});
-    init_planet_at_perihelion(&earth, PERI_EARTH);
+    init_planet_at_perihelion(&earth, PERI_EARTH, INCL_EARTH);
     init_satellite_orbit(&moon, &earth, R_MOON);
 
     Body *system[] = {&sun, &earth, &moon};
