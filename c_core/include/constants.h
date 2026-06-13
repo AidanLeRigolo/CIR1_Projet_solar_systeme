@@ -68,6 +68,19 @@
 
 // ── Satellites : orbit radius from planet center (m) ─
 
+// Orbital periods (seconds)
+#define PERIOD_PHOBOS   27553.0      // 7h39 en secondes
+#define PERIOD_DEIMOS   109075.0     // 30h18
+#define PERIOD_MOON     2360448.0    // 27.3 jours
+#define PERIOD_IO       152853.0     // 1.77 jours
+#define PERIOD_EUROPA   306822.0     // 3.55 jours
+#define PERIOD_TITAN    1377648.0    // 15.9 jours
+#define PERIOD_RHEA     390370.0     // 4.5 jours
+#define PERIOD_TITANIA  752220.0     // 8.7 jours
+#define PERIOD_OBERON   1163220.0    // 13.5 jours
+#define PERIOD_TRITON   507772.0     // 5.88 jours
+#define PERIOD_PROTEUS  97080.0      // 1.12 jours
+
 // Earth
 #define R_MOON       3.844e8
 

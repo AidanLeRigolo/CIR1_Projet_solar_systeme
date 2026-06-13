@@ -16,6 +16,80 @@ Vector3 compute_acceleration_from(Vector3 pos_body, Vector3 pos_attractor, doubl
     return vec_scale(r_vec, factor);
 }
 
+int compute_substeps(double orbital_period, double dt) {
+    // We want dt_substep <= 300s for fast satellites
+    // substeps = ceil(dt / 300)
+    // For bodies with period > 1 day, 1 substep is enough
+    if (orbital_period <= 0)          return 1;
+    if (orbital_period > 86400)       return 1;   // > 1 jour : ok
+    
+    // Pour les orbites rapides : substeps pour avoir dt <= 300s
+    int substeps = (int)ceil(dt / 300.0);
+    return substeps;
+}
+
+Point compute_step(Point current, Body **attractors,
+                   int n_attractors, double dt, SimMethod method) {
+    Point next;
+    next.time = current.time + 1;
+
+    // Reconstruit les tableaux de positions/masses pour total_acceleration
+    // depuis les attracteurs
+    switch (method) {
+        case METHOD_EULER: {
+            Vector3 acc     = total_acceleration(current.position,
+                                                  attractors, n_attractors);
+            next.position   = vec_add(current.position,
+                                       vec_scale(current.velocity, dt));
+            next.velocity   = vec_add(current.velocity,
+                                       vec_scale(acc, dt));
+            break;
+        }
+        case METHOD_EULER_ASYMMETRIC: {
+            next.position   = vec_add(current.position,
+                                       vec_scale(current.velocity, dt));
+            Vector3 acc     = total_acceleration(next.position,
+                                                  attractors, n_attractors);
+            next.velocity   = vec_add(current.velocity,
+                                       vec_scale(acc, dt));
+            break;
+        }
+        case METHOD_RK2: {
+            Vector3 k1_r = vec_scale(current.velocity, dt);
+            Vector3 k1_v = vec_scale(total_acceleration(current.position,
+                                      attractors, n_attractors), dt);
+            Vector3 mid_pos = vec_add(current.position,
+                                       vec_scale(k1_r, 0.5));
+            Vector3 mid_vel = vec_add(current.velocity,
+                                       vec_scale(k1_v, 0.5));
+            Vector3 k2_r = vec_scale(mid_vel, dt);
+            Vector3 k2_v = vec_scale(total_acceleration(mid_pos,
+                                      attractors, n_attractors), dt);
+            next.position = vec_add(current.position, k2_r);
+            next.velocity = vec_add(current.velocity, k2_v);
+            break;
+        }
+        case METHOD_RK2_SYMPLECTIC: {
+            Vector3 half_pos = vec_add(current.position,
+                                        vec_scale(current.velocity, dt*0.5));
+            Vector3 half_acc = total_acceleration(half_pos,
+                                                   attractors, n_attractors);
+            Vector3 half_vel = vec_add(current.velocity,
+                                        vec_scale(half_acc, dt*0.5));
+            next.position    = vec_add(half_pos,
+                                        vec_scale(half_vel, dt*0.5));
+            Vector3 full_acc = total_acceleration(next.position,
+                                                   attractors, n_attractors);
+            next.velocity    = vec_add(half_vel,
+                                        vec_scale(full_acc, dt*0.5));
+            break;
+        }
+        default:
+            next = current;
+    }
+    return next;
+}
+
 // Sum of accelerations from all attractors (superposition principle)
 Vector3 total_acceleration(Vector3 pos_body, Body  **attractors, int  n_attractors) {
     Vector3 acc = {0.0, 0.0, 0.0};
@@ -137,6 +211,123 @@ void system_simulate(Body **bodies, int n_bodies, double dt, int n_steps, SimMet
            method_name(method), n_bodies, n_steps);
 }
 
+void system_simulate_adaptive(Body **bodies, int n_bodies, double *periods,
+                              double dt, int n_steps, SimMethod method) {
+    int *substeps = malloc(sizeof(int) * n_bodies);
+    for (int i = 0; i < n_bodies; i++) {
+        substeps[i] = periods[i] > 0
+                    ? compute_substeps(periods[i], dt)
+                    : 1;
+        if (substeps[i] > 1)
+            printf("  %s : %d substeps (dt_internal=%.0fs)\n",
+                   bodies[i]->name, substeps[i], dt / substeps[i]);
+    }
+
+    for (int step = 0; step < n_steps; step++) {
+        for (int i = 0; i < n_bodies; i++) {
+            // Build attractor list
+            Body **attractors = malloc(sizeof(Body*) * (n_bodies - 1));
+            int k = 0;
+            for (int j = 0; j < n_bodies; j++)
+                if (j != i) attractors[k++] = bodies[j];
+
+            int    sub  = substeps[i];
+            double dt_i = dt / sub;
+
+            // Get current point
+            Point current = bodies[i]->trajectory.points[
+                                bodies[i]->trajectory.count - 1];
+
+            // Compute sub steps without touching trajectory
+            for (int s = 0; s < sub; s++) {
+                current = compute_step(current, attractors,
+                                        n_bodies - 1, dt_i, method);
+            }
+
+            // Add only the final point to trajectory
+            traj_add(&bodies[i]->trajectory, current);
+            free(attractors);
+        }
+    }
+
+    free(substeps);
+    printf("Adaptive simulation done (%s) : %d bodies, %d steps\n",
+           method_name(method), n_bodies, n_steps);
+}
+
+void simulate_planet_system(Body *planet,
+                             Body **satellites, int n_satellites,
+                             Body **attractors_ext, int n_ext,
+                             double dt, int n_steps,
+                             int substeps, SimMethod method) {
+    double dt_i = dt / substeps;
+
+    printf("Coupled integration : %s + %d satellites\n",
+           planet->name, n_satellites);
+    printf("  dt=%.0fs, substeps=%d, dt_internal=%.0fs\n",
+           dt, substeps, dt_i);
+
+    for (int step = 0; step < n_steps; step++) {
+
+        // Current state of planet and satellites
+        Point p_cur = planet->trajectory.points[
+                          planet->trajectory.count - 1];
+
+        Point *s_cur = malloc(sizeof(Point) * n_satellites);
+        for (int i = 0; i < n_satellites; i++) {
+            s_cur[i] = satellites[i]->trajectory.points[
+                           satellites[i]->trajectory.count - 1];
+        }
+
+        // Substeps — planet and satellites move together
+        for (int s = 0; s < substeps; s++) {
+
+            // ── Planet attracted by external bodies only ──
+            // (satellites mass negligible vs planet)
+            Point p_next = compute_step(p_cur, attractors_ext,
+                                         n_ext, dt_i, method);
+
+            // ── Each satellite attracted by :
+            //    1. Planet (updated position from this substep)
+            //    2. External bodies (Sun, etc.)
+            for (int i = 0; i < n_satellites; i++) {
+
+                // Build attractor list for this satellite :
+                // planet (current substep position) + external bodies
+                // We use a temporary Body to pass planet's current position
+                Body planet_temp = body_create("_p", planet->mass, 2);
+                body_init_point(&planet_temp,
+                                 p_cur.position,
+                                 p_cur.velocity);
+
+                Body **sat_attractors = malloc(
+                    sizeof(Body*) * (n_ext + 1));
+                sat_attractors[0] = &planet_temp;
+                for (int e = 0; e < n_ext; e++)
+                    sat_attractors[e + 1] = attractors_ext[e];
+
+                s_cur[i] = compute_step(s_cur[i], sat_attractors,
+                                         n_ext + 1, dt_i, method);
+
+                free(sat_attractors);
+                body_free(&planet_temp);
+            }
+
+            // Update current state for next substep
+            p_cur = p_next;
+        }
+
+        // Store final point after all substeps
+        traj_add(&planet->trajectory, p_cur);
+        for (int i = 0; i < n_satellites; i++)
+            traj_add(&satellites[i]->trajectory, s_cur[i]);
+
+        free(s_cur);
+    }
+
+    printf("Coupled simulation done : %d steps\n", n_steps);
+}
+
 const char *method_name(SimMethod method) {
     switch (method) {
         case METHOD_EULER:            return "euler";
@@ -207,7 +398,7 @@ void physics_test(void) {
     printf("=== test_phobos ===\n");
 
     double dt_phob      = 300.0; // phobos ne se barre pas la
-    int    n_steps_phob = 48 * 30;  // 30 jours
+    int    n_steps_phob = 48 * 600;  // 30 jours
 
     Body mars   = body_create("mars",   M_MARS,   n_steps_phob + 2);
     Body phobos = body_create("phobos", M_PHOBOS, n_steps_phob + 2);
