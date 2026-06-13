@@ -1,0 +1,200 @@
+/* ── Reset & base ── */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #e0e0e0;
+    font-family: 'Arial', sans-serif;
+    font-size: 13px;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ── Canvas ── */
+#canvas-container {
+    flex: 1;
+    position: relative;
+}
+
+#canvas-container canvas {
+    display: block;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: #0a0a0f;
+    border-left: 1px solid #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+#sidebar-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid #1a1a2e;
+}
+
+#sidebar-header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 2px;
+}
+
+#sidebar-subtitle {
+    font-size: 11px;
+    color: #555;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ── Sections ── */
+.sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid #111;
+}
+
+.section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #444;
+    margin-bottom: 10px;
+}
+
+/* ── Boutons ── */
+button {
+    background: #111827;
+    color: #ccc;
+    border: 1px solid #222;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #1e2a3a;
+    color: #fff;
+}
+
+/* ── Sliders ── */
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.slider-row label {
+    font-size: 11px;
+    color: #555;
+    min-width: 45px;
+}
+
+input[type="range"] {
+    flex: 1;
+    accent-color: #4a7ab5;
+    cursor: pointer;
+}
+
+#time-slider {
+    width: 100%;
+    margin-top: 8px;
+}
+
+#speed-value {
+    font-size: 11px;
+    color: #4a7ab5;
+    min-width: 18px;
+    text-align: right;
+}
+
+/* ── Infos corps sélectionné ── */
+#body-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 10px;
+    text-transform: capitalize;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #0f0f0f;
+}
+
+.stat-label {
+    color: #555;
+    font-size: 11px;
+}
+
+.stat-value {
+    color: #a0c4ff;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+}
+
+/* ── Temps simulé ── */
+#sim-time {
+    font-size: 14px;
+    color: #4a7ab5;
+    font-family: monospace;
+    margin-bottom: 6px;
+}
+
+/* ── Liste des corps ── */
+#body-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.body-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.body-item:hover {
+    background: #111827;
+}
+
+.body-item.selected {
+    background: #0f1f35;
+    border: 1px solid #1e3a5f;
+}
+
+.body-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.body-label {
+    font-size: 12px;
+    color: #ccc;
+    text-transform: capitalize;
+}

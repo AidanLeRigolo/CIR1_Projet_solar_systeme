@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projet Kepler</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="sidebar">
+        <div id="sidebar-header">
+            <h1>KEPLER</h1>
+            <p id="sidebar-subtitle">Système solaire</p>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title">Animation</div>
+            <button id="btn-play">⏸ Pause</button>
+            <div class="slider-row">
+                <label>Vitesse</label>
+                <input type="range" id="speed-slider" min="1" max="100" value="10">
+                <span id="speed-value">10</span>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title">Temps simulé</div>
+            <div id="sim-time">Jour 0</div>
+            <input type="range" id="time-slider" min="0" max="1825" value="0">
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title">Vue</div>
+            <button id="btn-reset-view">↺ Vue système</button>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title">Corps sélectionné</div>
+            <div id="body-name">—</div>
+            <div id="body-stats">
+                <div class="stat-row">
+                    <span class="stat-label">Distance Soleil</span>
+                    <span class="stat-value" id="stat-distance">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Vitesse</span>
+                    <span class="stat-value" id="stat-velocity">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Ec</span>
+                    <span class="stat-value" id="stat-ec">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Ep</span>
+                    <span class="stat-value" id="stat-ep">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">E totale</span>
+                    <span class="stat-value" id="stat-etotal">—</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title">Corps visibles</div>
+            <div id="body-list"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/loader.js"></script>
+    <script src="js/scale.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/simulation.js"></script>
+</body>
+</html>
