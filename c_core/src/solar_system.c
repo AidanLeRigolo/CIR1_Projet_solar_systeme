@@ -6,11 +6,9 @@
 #include "json_export.h"
 #include "constants.h"
 
-// dt = 1800s (30 min) — precise enough for Phobos (7h30 orbit)
-// 5 years at 30-min steps
-#define DT       1800.0            // 1800.0
-#define N_STEPS  (48 * 365 * 5)     // 87600 steps = (48 * 365 * 5)
-#define SAMPLE   48                 // export 1 point per day
+#define DT      1800.0
+#define N_STEPS (48 * 365 * 5)
+#define SAMPLE  48
 
 void run_solar_system(const char *output_file) {
     printf("=== Building solar system ===\n");
@@ -20,8 +18,10 @@ void run_solar_system(const char *output_file) {
     Vector3 zero    = {0.0, 0.0, 0.0};
     int     cap     = N_STEPS + 2;
 
-    // ── All bodies ───────────────────────────────────
-    Body sun     = body_create("sun",     M_SUN,     cap);
+    // Sun initialized ONCE here
+    Body sun = body_create("sun", M_SUN, cap);
+    body_init_point(&sun, sun_pos, zero);
+
     Body mercury = body_create("mercury", M_MERCURY, cap);
     Body venus   = body_create("venus",   M_VENUS,   cap);
     Body earth   = body_create("earth",   M_EARTH,   cap);
@@ -31,43 +31,26 @@ void run_solar_system(const char *output_file) {
     Body uranus  = body_create("uranus",  M_URANUS,  cap);
     Body neptune = body_create("neptune", M_NEPTUNE, cap);
 
-    // Earth satellites
     Body moon    = body_create("moon",    M_MOON,    cap);
-
-    // Mars satellites
     Body phobos  = body_create("phobos",  M_PHOBOS,  cap);
     Body deimos  = body_create("deimos",  M_DEIMOS,  cap);
-
-    // Jupiter satellites
     Body io      = body_create("io",      M_IO,      cap);
     Body europa  = body_create("europa",  M_EUROPA,  cap);
-
-    // Saturn satellites
     Body titan   = body_create("titan",   M_TITAN,   cap);
     Body rhea    = body_create("rhea",    M_RHEA,    cap);
-
-    // Uranus satellites
     Body titania = body_create("titania", M_TITANIA, cap);
     Body oberon  = body_create("oberon",  M_OBERON,  cap);
-
-    // Neptune satellites
     Body triton  = body_create("triton",  M_TRITON,  cap);
     Body proteus = body_create("proteus", M_PROTEUS, cap);
 
-    // 10 years visible — enough to see the elongated trajectory
-    // Halley needs smaller dt for accuracy near perihelion
-    // We keep dt=1800s but RK2 symplectic handles it well enough
-    #define N_HALLEY  (48 * 365 * 10)   // 10 years at 30-min steps
-
-    Body halley = body_create("halley", M_HALLEY, N_HALLEY + 2);
+    // Halley — separate simulation, attracted by Sun only
+    int   n_halley = 48 * 365 * 10;
+    Body  halley   = body_create("halley", M_HALLEY, n_halley + 2);
     init_elliptic_orbit(&halley, PERI_HALLEY, APHA_HALLEY, INCL_HALLEY);
+    Body *sun_ptr  = &sun;
+    body_simulate(&halley, &sun_ptr, 1, DT, n_halley, METHOD_RK2_SYMPLECTIC);
 
-    Body *sun_halley = &sun;
-    body_simulate(&halley, &sun_halley, 1,DT, N_HALLEY, METHOD_RK2_SYMPLECTIC);
-
-    // ── Initial conditions ───────────────────────────
-    body_init_point(&sun, sun_pos, zero);
-
+    // Initial conditions for planets and satellites
     init_planet_at_perihelion(&mercury, PERI_MERCURY, INCL_MERCURY);
     init_planet_at_perihelion(&venus,   PERI_VENUS,   INCL_VENUS);
     init_planet_at_perihelion(&earth,   PERI_EARTH,   INCL_EARTH);
@@ -89,10 +72,23 @@ void run_solar_system(const char *output_file) {
     init_satellite_orbit(&triton,  &neptune, R_TRITON);
     init_satellite_orbit(&proteus, &neptune, R_PROTEUS);
 
-    // ── Single simulation — all bodies together ──────
-    // Every body attracts every other body
+    // Main simulation — all planets and satellites together
+    // sun(1) + planets(8) + satellites(11) = 20 bodies
     Body *system[] = {
         &sun,
+        &mercury, &venus, &earth, &mars,
+        &jupiter, &saturn, &uranus, &neptune,
+        &moon,
+        &phobos, &deimos,
+        &io, &europa,
+        &titan, &rhea,
+        &titania, &oberon,
+        &triton, &proteus
+    };
+    system_simulate(system, 20, DT, N_STEPS, METHOD_RK2_SYMPLECTIC);
+
+    // Export — sun excluded, halley included (20 bodies)
+    Body *to_export[] = {
         &mercury, &venus, &earth, &mars,
         &jupiter, &saturn, &uranus, &neptune,
         &moon,
@@ -103,26 +99,8 @@ void run_solar_system(const char *output_file) {
         &triton, &proteus,
         &halley
     };
-    int n_bodies = 20;
+    json_export_all_sampled(output_file, to_export, 20, SAMPLE);
 
-    system_simulate(system, n_bodies, DT, N_STEPS, METHOD_RK2_SYMPLECTIC);
-
-    // ── Export ───────────────────────────────────────
-    // sun excluded from export (static, not useful for display)
-    Body *to_export[] = {
-        &mercury, &venus, &earth, &mars,
-        &jupiter, &saturn, &uranus, &neptune,
-        &moon,
-        &phobos, &deimos,
-        &io, &europa,
-        &titan, &rhea,
-        &titania, &oberon,
-        &triton, &proteus
-    };
-
-    json_export_all_sampled(output_file, to_export, 19, SAMPLE);
-
-    // ── Cleanup ──────────────────────────────────────
     body_free(&sun);
     body_free(&mercury); body_free(&venus);
     body_free(&earth);   body_free(&mars);

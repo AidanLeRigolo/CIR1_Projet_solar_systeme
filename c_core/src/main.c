@@ -5,16 +5,16 @@
 #include "orbital_init.h"
 #include "physics.h"
 #include "json_export.h"
+#include "energy.h"
 #include "solar_system.h"
 
 int main(void) {
-    // tests unitaires
     vec_test();
     traj_test();
     physics_test();
     json_test();
+    energy_test();
 
-    // simulation complete
     run_solar_system("../web/data/trajectoire.json");
 
     return 0;
