@@ -9,8 +9,8 @@ bin/kepler.exe: $(OBJ)
 	$(CC) $^ -o $@ -lm                    # $^ -> OBJ, $@ -> nom de la cible
 
 obj/%.o: src/%.c
-	@mkdir -p obj bin                     # creer les fichier si il exite pas
-	$(CC) $(CFLAGS) -c $< -o $@           # $< -> premier ligne de la dependance
+	@mkdir -p obj bin                     # créer les fichiers si ils n'existent pas
+	$(CC) $(CFLAGS) -c $< -o $@           # $< -> première ligne de la dépendance
 
 clean:
 	rm -f obj/*.o bin/kepler.exe

@@ -204,5 +204,37 @@ void physics_test(void) {
     body_free(&moon);
     body_free(&sun);
 
+    printf("=== test_phobos ===\n");
+
+    double dt_phob      = 300.0; // phobos ne se barre pas la
+    int    n_steps_phob = 48 * 30;  // 30 jours
+
+    Body mars   = body_create("mars",   M_MARS,   n_steps_phob + 2);
+    Body phobos = body_create("phobos", M_PHOBOS, n_steps_phob + 2);
+
+    Vector3 mars_pos = {PERI_MARS, 0.0, 0.0};
+    Vector3 mars_vel = {0.0, sqrt(G * M_SUN / PERI_MARS), 0.0};
+    body_init_point(&mars, mars_pos, mars_vel);
+
+    init_satellite_orbit(&phobos, &mars, R_PHOBOS);
+
+    printf("Phobos initial : ");
+    point_print(phobos.trajectory.points[0]);
+
+    Body *system_Mars_Phobos[] = {&mars, &phobos};
+    system_simulate(system_Mars_Phobos, 2, dt_phob, n_steps_phob, METHOD_RK2_SYMPLECTIC);
+
+    printf("Phobos final : ");
+    point_print(phobos.trajectory.points[phobos.trajectory.count - 1]);
+
+    // Distance Mars-Phobos au début et à la fin
+    Point mp = mars.trajectory.points[mars.trajectory.count - 1];
+    Point pp = phobos.trajectory.points[phobos.trajectory.count - 1];
+    Vector3 diff = vec_sub(pp.position, mp.position);
+    printf("Distance Mars-Phobos finale : %.3e m (attendu : %.3e m)\n",
+           vec_norm(diff), R_PHOBOS);
+
+    body_free(&mars);
+    body_free(&phobos);
     printf("====================\n");
 }
