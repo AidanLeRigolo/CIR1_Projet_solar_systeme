@@ -44,3 +44,12 @@ v = sqrt( G * M_SUN * (2/r - 1/a) )
 où :
   r = distance au point courant (périhélie ici)
   a = demi grand-axe = (périhélie + aphélie) / 2
+
+
+c'est précisément l'idée des substeps. Neptune fait 1 pas de dt=1800s, Phobos fait 6 pas de dt=300s dans le même temps réel simulé. La physique est correcte car :
+
+Le temps total avancé est identique pour tous les corps
+Phobos avance par petits pas précis de 300s
+Neptune avance par grands pas de 1800s — son orbite est si lente que c'est suffisant
+
+Ce n'est pas une simplification — c'est une technique standard appelée intégration multi-échelle. C'est ce que font les vrais simulateurs astronomiques comme REBOUND (utilisé par la NASA).
