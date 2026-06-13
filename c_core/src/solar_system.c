@@ -8,7 +8,7 @@
 
 #define DT      1800.0
 #define N_STEPS (48 * 365 * 5)
-#define SAMPLE  1 //  48 poue un jour
+#define SAMPLE  48 //  48 poue un jour
 
 void run_solar_system(const char *output_file) {
     printf("=== Building solar system ===\n");
