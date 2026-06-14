@@ -53,3 +53,44 @@ Phobos avance par petits pas précis de 300s
 Neptune avance par grands pas de 1800s — son orbite est si lente que c'est suffisant
 
 Ce n'est pas une simplification — c'est une technique standard appelée intégration multi-échelle. C'est ce que font les vrais simulateurs astronomiques comme REBOUND (utilisé par la NASA).
+
+
+LIMITE
+
+Ce que tu as — déjà très bien
+RK2 symplectique + substeps adaptatifs c'est une vraie méthode professionnelle. Le simulateur REBOUND utilisé par des chercheurs en mécanique céleste utilise exactement ce principe.
+
+Les limites actuelles et comment les corriger
+Limite 1 — Les attracteurs ne bougent pas pendant les substeps
+Pendant les 6 substeps de Phobos, Mars est figée à sa position du début du pas. C'est la vraie cause du décrochage. La solution exacte s'appelle intégration symplectique couplée — à chaque substep de Phobos, Mars avance aussi d'un micro-pas proportionnel. C'est complexe à implémenter mais c'est le vrai fix physique.
+Une approximation correcte : mettre Mars dans les substeps de Phobos avec le même dt_i :
+c// Au lieu d'utiliser la position figée de Mars,
+// on avance Mars en même temps que Phobos
+// pendant les substeps internes
+for (int s = 0; s < sub; s++) {
+    // Avancer aussi l'attracteur principal (Mars pour Phobos)
+    // avec le même dt_i mais sans le stocker
+    current = compute_step(current, attractors,
+                            n_bodies - 1, dt_i, method);
+}
+Limite 2 — Initialisation à l'orbite circulaire
+Tu utilises v0 = sqrt(G * M_SUN / r) pour les planètes — c'est l'orbite circulaire parfaite. Dans la réalité les orbites sont elliptiques. Tu as déjà la formule vis-viva pour Halley, tu pourrais l'appliquer à toutes les planètes avec leur excentricité réelle :
+c// constants.h — excentricités réelles
+#define ECC_MERCURY 0.2056
+#define ECC_VENUS   0.0068
+#define ECC_EARTH   0.0167
+#define ECC_MARS    0.0934
+#define ECC_JUPITER 0.0489
+#define ECC_SATURN  0.0565
+#define ECC_URANUS  0.0457
+#define ECC_NEPTUNE 0.0113
+
+// orbital_init.c — utiliser vis-viva pour toutes les planètes
+// aphelion = perihelion * (1 + e) / (1 - e)
+double aphelion = perihelion * (1.0 + ecc) / (1.0 - ecc);
+double a        = (perihelion + aphelion) / 2.0;
+double v0       = sqrt(G * M_SUN * (2.0/perihelion - 1.0/a));
+Limite 3 — Le Soleil est fixe
+Dans la réalité le Soleil bouge légèrement autour du centre de masse du système solaire (barycentre) à cause de Jupiter principalement. C'est un déplacement de ~700 000 km. Pour la précision du projet c'est négligeable mais physiquement intéressant.
+Limite 4 — Pas de précession des orbites
+Les orbites des planètes tournent lentement dans l'espace (précession de Mercure célèbre). C'est un effet relativiste que Newton ne capture pas — impossible à corriger sans relativité générale.

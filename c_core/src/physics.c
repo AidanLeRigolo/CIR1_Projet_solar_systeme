@@ -211,48 +211,112 @@ void system_simulate(Body **bodies, int n_bodies, double dt, int n_steps, SimMet
            method_name(method), n_bodies, n_steps);
 }
 
-void system_simulate_adaptive(Body **bodies, int n_bodies, double *periods,
-                              double dt, int n_steps, SimMethod method) {
-    int *substeps = malloc(sizeof(int) * n_bodies);
+void system_simulate_adaptive(Body **bodies, int n_bodies,
+                               double *substeps_per_body,
+                               double dt, int n_steps,
+                               SimMethod method) {
+    // Trouve le max de substeps — tous les corps avancent
+    // par multiples de dt/max_sub
+    int max_sub = 1;
     for (int i = 0; i < n_bodies; i++) {
-        substeps[i] = periods[i] > 0
-                    ? compute_substeps(periods[i], dt)
-                    : 1;
-        if (substeps[i] > 1)
-            printf("  %s : %d substeps (dt_internal=%.0fs)\n",
-                   bodies[i]->name, substeps[i], dt / substeps[i]);
+        int s = (int)substeps_per_body[i];
+        if (s > max_sub) max_sub = s;
     }
+
+    double dt_min = dt / max_sub;  // plus petit pas de temps
+
+    printf("Adaptive simulation : max_substeps=%d, dt_min=%.0fs\n",
+           max_sub, dt_min);
+
+    // Tableau des positions courantes de tous les corps
+    Point *cur = malloc(sizeof(Point) * n_bodies);
 
     for (int step = 0; step < n_steps; step++) {
+
+        // Récupérer la position actuelle de chaque corps
         for (int i = 0; i < n_bodies; i++) {
-            // Build attractor list
-            Body **attractors = malloc(sizeof(Body*) * (n_bodies - 1));
-            int k = 0;
-            for (int j = 0; j < n_bodies; j++)
-                if (j != i) attractors[k++] = bodies[j];
+            cur[i] = bodies[i]->trajectory.points[
+                         bodies[i]->trajectory.count - 1];
+        }
 
-            int    sub  = substeps[i];
-            double dt_i = dt / sub;
+        // Avancer par micro-pas de dt_min
+        // Chaque corps avance à dt_min ou reste figé selon son ratio
+        for (int sub = 0; sub < max_sub; sub++) {
 
-            // Get current point
-            Point current = bodies[i]->trajectory.points[
-                                bodies[i]->trajectory.count - 1];
+            // Corps temporaires pour ce micro-pas
+            Point *next = malloc(sizeof(Point) * n_bodies);
 
-            // Compute sub steps without touching trajectory
-            for (int s = 0; s < sub; s++) {
-                current = compute_step(current, attractors,
-                                        n_bodies - 1, dt_i, method);
+            for (int i = 0; i < n_bodies; i++) {
+                int body_sub = (int)substeps_per_body[i];
+
+                // Ce corps avance seulement si c'est son tour
+                // Ex: body_sub=2, max_sub=6 → avance aux sub 0,2,4
+                // Ex: body_sub=6, max_sub=6 → avance à chaque sub
+                // Ex: body_sub=1, max_sub=6 → avance seulement au sub 0
+                int should_advance;
+                if (body_sub >= max_sub) {
+                    should_advance = 1;  // avance à chaque micro-pas
+                } else {
+                    // avance tous les (max_sub / body_sub) micro-pas
+                    int interval = max_sub / body_sub;
+                    should_advance = (sub % interval == 0);
+                }
+
+                if (should_advance) {
+                    // dt effectif pour ce corps
+                    double dt_eff = dt / body_sub;
+
+                    // Attracteurs = positions COURANTES des autres corps
+                    // (mises à jour au même micro-pas)
+                    Body **attractors = malloc(
+                        sizeof(Body*) * (n_bodies - 1));
+
+                    // Corps temporaires avec positions courantes
+                    Body *temp_bodies = malloc(
+                        sizeof(Body) * (n_bodies - 1));
+
+                    int k = 0;
+                    for (int j = 0; j < n_bodies; j++) {
+                        if (j == i) continue;
+                        temp_bodies[k] = body_create("_t",
+                                                      bodies[j]->mass, 2);
+                        body_init_point(&temp_bodies[k],
+                                         cur[j].position,
+                                         cur[j].velocity);
+                        attractors[k] = &temp_bodies[k];
+                        k++;
+                    }
+
+                    next[i] = compute_step(cur[i], attractors,
+                                            n_bodies - 1,
+                                            dt_eff, method);
+
+                    // Libérer les corps temporaires
+                    for (int j = 0; j < n_bodies - 1; j++)
+                        body_free(&temp_bodies[j]);
+                    free(temp_bodies);
+                    free(attractors);
+
+                } else {
+                    next[i] = cur[i];  // pas d'avancement
+                }
             }
 
-            // Add only the final point to trajectory
-            traj_add(&bodies[i]->trajectory, current);
-            free(attractors);
+            // Mettre à jour cur avec les nouvelles positions
+            for (int i = 0; i < n_bodies; i++)
+                cur[i] = next[i];
+
+            free(next);
         }
+
+        // Stocker le point final de ce pas global
+        for (int i = 0; i < n_bodies; i++)
+            traj_add(&bodies[i]->trajectory, cur[i]);
     }
 
-    free(substeps);
-    printf("Adaptive simulation done (%s) : %d bodies, %d steps\n",
-           method_name(method), n_bodies, n_steps);
+    free(cur);
+    printf("Adaptive simulation done : %d bodies, %d steps\n",
+           n_bodies, n_steps);
 }
 
 void simulate_planet_system(Body *planet,
@@ -267,63 +331,87 @@ void simulate_planet_system(Body *planet,
     printf("  dt=%.0fs, substeps=%d, dt_internal=%.0fs\n",
            dt, substeps, dt_i);
 
+    // planet_temp initialisé avec un vrai point
+    Body planet_temp = body_create("_p", planet->mass, 2);
+    Point p_init = planet->trajectory.points[1];
+    body_init_point(&planet_temp, p_init.position, p_init.velocity);
+
+    // sat_attractors alloué une seule fois
+    Body **sat_attractors = malloc(sizeof(Body*) * (n_ext + 1));
+    sat_attractors[0] = &planet_temp;
+    for (int e = 0; e < n_ext; e++)
+        sat_attractors[e + 1] = attractors_ext[e];
+
+    Point *s_cur = malloc(sizeof(Point) * n_satellites);
+
+    printf("DEBUG satellite %s count=%d\n",
+       satellites[0]->name,
+       satellites[0]->trajectory.count);
+    if (satellites[0]->trajectory.count > 0)
+        point_print(satellites[0]->trajectory.points[0]);
+        
     for (int step = 0; step < n_steps; step++) {
 
-        // Current state of planet and satellites
-        Point p_cur = planet->trajectory.points[
-                          planet->trajectory.count - 1];
+        // Positions de la planète à ce pas et au suivant
+        Point p_cur  = planet->trajectory.points[step + 1];
+        Point p_next = (step + 2 < planet->trajectory.count)
+                     ? planet->trajectory.points[step + 2]
+                     : p_cur;
 
-        Point *s_cur = malloc(sizeof(Point) * n_satellites);
+        // État courant des satellites
         for (int i = 0; i < n_satellites; i++) {
             s_cur[i] = satellites[i]->trajectory.points[
                            satellites[i]->trajectory.count - 1];
         }
 
-        // Substeps — planet and satellites move together
+        if (step == 0) {
+        printf("DEBUG step=0 : planet pos = (%.3e, %.3e, %.3e)\n",
+            p_cur.position.x, p_cur.position.y, p_cur.position.z);
+        printf("DEBUG step=0 : sat[0] pos = (%.3e, %.3e, %.3e)\n",
+            s_cur[0].position.x, s_cur[0].position.y, s_cur[0].position.z);
+        Vector3 diff = vec_sub(s_cur[0].position, p_cur.position);
+        printf("DEBUG step=0 : distance = %.3e m (attendu %.3e m)\n",
+            vec_norm(diff), R_MOON);
+    }
+
+        // Substeps
         for (int s = 0; s < substeps; s++) {
+            double alpha = (double)(s + 1) / substeps;
 
-            // ── Planet attracted by external bodies only ──
-            // (satellites mass negligible vs planet)
-            Point p_next = compute_step(p_cur, attractors_ext,
-                                         n_ext, dt_i, method);
+            // Interpolation de la planète
+            planet_temp.trajectory.points[0].position = (Vector3){
+                p_cur.position.x + alpha *
+                    (p_next.position.x - p_cur.position.x),
+                p_cur.position.y + alpha *
+                    (p_next.position.y - p_cur.position.y),
+                p_cur.position.z + alpha *
+                    (p_next.position.z - p_cur.position.z)
+            };
+            planet_temp.trajectory.points[0].velocity = (Vector3){
+                p_cur.velocity.x + alpha *
+                    (p_next.velocity.x - p_cur.velocity.x),
+                p_cur.velocity.y + alpha *
+                    (p_next.velocity.y - p_cur.velocity.y),
+                p_cur.velocity.z + alpha *
+                    (p_next.velocity.z - p_cur.velocity.z)
+            };
+            // count reste 1 — déjà initialisé correctement
 
-            // ── Each satellite attracted by :
-            //    1. Planet (updated position from this substep)
-            //    2. External bodies (Sun, etc.)
+            // Avancer chaque satellite
             for (int i = 0; i < n_satellites; i++) {
-
-                // Build attractor list for this satellite :
-                // planet (current substep position) + external bodies
-                // We use a temporary Body to pass planet's current position
-                Body planet_temp = body_create("_p", planet->mass, 2);
-                body_init_point(&planet_temp,
-                                 p_cur.position,
-                                 p_cur.velocity);
-
-                Body **sat_attractors = malloc(
-                    sizeof(Body*) * (n_ext + 1));
-                sat_attractors[0] = &planet_temp;
-                for (int e = 0; e < n_ext; e++)
-                    sat_attractors[e + 1] = attractors_ext[e];
-
                 s_cur[i] = compute_step(s_cur[i], sat_attractors,
                                          n_ext + 1, dt_i, method);
-
-                free(sat_attractors);
-                body_free(&planet_temp);
             }
-
-            // Update current state for next substep
-            p_cur = p_next;
         }
 
-        // Store final point after all substeps
-        traj_add(&planet->trajectory, p_cur);
+        // Stocker le point final
         for (int i = 0; i < n_satellites; i++)
             traj_add(&satellites[i]->trajectory, s_cur[i]);
-
-        free(s_cur);
     }
+
+    free(s_cur);
+    free(sat_attractors);
+    body_free(&planet_temp);
 
     printf("Coupled simulation done : %d steps\n", n_steps);
 }

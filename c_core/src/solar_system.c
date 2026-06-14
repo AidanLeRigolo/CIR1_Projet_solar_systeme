@@ -8,16 +8,17 @@
 
 #define DT      1800.0
 #define N_STEPS (48 * 365 * 5)
-#define SAMPLE  48 //  48 pour un jour
+#define SAMPLE  48
 
 void run_solar_system(const char *output_file) {
     printf("=== Building solar system ===\n");
+    printf("dt=%.0fs, steps=%d, sample every %d\n", DT, N_STEPS, SAMPLE);
 
     Vector3 sun_pos = {0.0, 0.0, 0.0};
     Vector3 zero    = {0.0, 0.0, 0.0};
     int     cap     = N_STEPS + 2;
 
-    // ── Tous les corps ───────────────────────────────
+    // ── Corps ────────────────────────────────────────
     Body sun     = body_create("sun",     M_SUN,     cap);
     Body mercury = body_create("mercury", M_MERCURY, cap);
     Body venus   = body_create("venus",   M_VENUS,   cap);
@@ -28,7 +29,6 @@ void run_solar_system(const char *output_file) {
     Body uranus  = body_create("uranus",  M_URANUS,  cap);
     Body neptune = body_create("neptune", M_NEPTUNE, cap);
 
-    // Satellites
     Body moon    = body_create("moon",    M_MOON,    cap);
     Body phobos  = body_create("phobos",  M_PHOBOS,  cap);
     Body deimos  = body_create("deimos",  M_DEIMOS,  cap);
@@ -41,7 +41,7 @@ void run_solar_system(const char *output_file) {
     Body triton  = body_create("triton",  M_TRITON,  cap);
     Body proteus = body_create("proteus", M_PROTEUS, cap);
 
-    // ── Init ────────────────────────────────────────
+    // ── Init ─────────────────────────────────────────
     body_init_point(&sun, sun_pos, zero);
 
     init_planet_at_perihelion(&mercury, PERI_MERCURY, INCL_MERCURY);
@@ -53,6 +53,7 @@ void run_solar_system(const char *output_file) {
     init_planet_at_perihelion(&uranus,  PERI_URANUS,  INCL_URANUS);
     init_planet_at_perihelion(&neptune, PERI_NEPTUNE, INCL_NEPTUNE);
 
+    // Satellites initialisés avant la simulation
     init_satellite_orbit(&moon,    &earth,   R_MOON);
     init_satellite_orbit(&phobos,  &mars,    R_PHOBOS);
     init_satellite_orbit(&deimos,  &mars,    R_DEIMOS);
@@ -65,76 +66,55 @@ void run_solar_system(const char *output_file) {
     init_satellite_orbit(&triton,  &neptune, R_TRITON);
     init_satellite_orbit(&proteus, &neptune, R_PROTEUS);
 
-    // ── Simulation 1 — planètes ──────────────────────
-    // Planètes s'attirent mutuellement + Soleil
-    Body *planets[] = {
+    // ── Simulation unique — tous les corps ensemble ───
+    // Substeps : 1 pour planètes, 6 pour satellites rapides
+    // dt=1800s → dt_internal=300s pour substeps=6
+    double substeps[] = {
+        1,   // sun
+        1,   // mercury
+        1,   // venus
+        1,   // earth
+        6,   // mars
+        1,   // jupiter
+        1,   // saturn
+        1,   // uranus
+        1,   // neptune
+        2,   // moon     → dt_i = 900s
+        6,   // phobos   → dt_i = 300s
+        6,   // deimos   → dt_i = 300s
+        6,   // io       → dt_i = 300s
+        6,   // europa   → dt_i = 300s
+        2,   // titan    → dt_i = 900s
+        2,   // rhea     → dt_i = 900s
+        2,   // titania  → dt_i = 900s
+        2,   // oberon   → dt_i = 900s
+        6,   // triton   → dt_i = 300s
+        6,   // proteus  → dt_i = 300s
+    };
+
+    Body *system[] = {
         &sun,
         &mercury, &venus, &earth, &mars,
-        &jupiter, &saturn, &uranus, &neptune
+        &jupiter, &saturn, &uranus, &neptune,
+        &moon,
+        &phobos, &deimos,
+        &io, &europa,
+        &titan, &rhea,
+        &titania, &oberon,
+        &triton, &proteus
     };
-    printf("\n[1/6] Simulating planets...\n");
-    system_simulate(planets, 9, DT, N_STEPS, METHOD_RK2_SYMPLECTIC);
 
-    // Substeps pour satellites rapides
-    // dt=1800s, dt_internal=300s → substeps=6
-    int sub_fast = 6;   // pour Phobos, Deimos, Io, Europa, Proteus
-    int sub_slow = 2;   // pour Moon, Titan, Rhea, Triton, Titania, Oberon
+    printf("\n[1/2] Simulating full system...\n");
+    system_simulate_adaptive(system, 20, substeps,
+                              DT, N_STEPS, METHOD_RK2_SYMPLECTIC);
 
-    // Attracteurs externes communs
-    Body *ext_sun[] = {&sun};
-
-    // ── Simulation 2 — Terre + Lune ──────────────────
-    Body *earth_sats[] = {&moon};
-    printf("\n[2/6] Simulating Earth + Moon...\n");
-    simulate_planet_system(&earth, earth_sats, 1,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_slow,
-                            METHOD_RK2_SYMPLECTIC);
-
-    // ── Simulation 3 — Mars + Phobos + Deimos ────────
-    Body *mars_sats[] = {&phobos, &deimos};
-    printf("\n[3/6] Simulating Mars + Phobos + Deimos...\n");
-    simulate_planet_system(&mars, mars_sats, 2,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_fast,
-                            METHOD_RK2_SYMPLECTIC);
-
-    // ── Simulation 4 — Jupiter + Io + Europa ─────────
-    Body *jupiter_sats[] = {&io, &europa};
-    printf("\n[4/6] Simulating Jupiter + Io + Europa...\n");
-    simulate_planet_system(&jupiter, jupiter_sats, 2,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_fast,
-                            METHOD_RK2_SYMPLECTIC);
-
-    // ── Simulation 5 — Saturne + Titan + Rhea ────────
-    Body *saturn_sats[] = {&titan, &rhea};
-    printf("\n[5/6] Simulating Saturn + Titan + Rhea...\n");
-    simulate_planet_system(&saturn, saturn_sats, 2,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_slow,
-                            METHOD_RK2_SYMPLECTIC);
-
-    // ── Simulation 6 — Uranus, Neptune, Halley ───────
-    Body *uranus_sats[]  = {&titania, &oberon};
-    Body *neptune_sats[] = {&triton, &proteus};
-
-    printf("\n[6/6] Simulating Uranus, Neptune satellites + Halley...\n");
-    simulate_planet_system(&uranus, uranus_sats, 2,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_slow,
-                            METHOD_RK2_SYMPLECTIC);
-
-    simulate_planet_system(&neptune, neptune_sats, 2,
-                            ext_sun, 1,
-                            DT, N_STEPS, sub_fast,
-                            METHOD_RK2_SYMPLECTIC);
-
-    // Halley — séparée, attirée par Soleil uniquement
+    // ── Halley — séparée ─────────────────────────────
+    printf("\n[2/2] Simulating Halley...\n");
     int   n_halley = 48 * 365 * 10;
     Body  halley   = body_create("halley", M_HALLEY, n_halley + 2);
     init_elliptic_orbit(&halley, PERI_HALLEY, APHA_HALLEY, INCL_HALLEY);
-    body_simulate(&halley, ext_sun, 1, DT, n_halley,
+    Body *sun_ptr  = &sun;
+    body_simulate(&halley, &sun_ptr, 1, DT, n_halley,
                   METHOD_RK2_SYMPLECTIC);
 
     // ── Export ───────────────────────────────────────
@@ -149,7 +129,7 @@ void run_solar_system(const char *output_file) {
         &triton, &proteus,
         &halley
     };
-    json_export_all_sampled(output_file, to_export, 21, SAMPLE);
+    json_export_all_sampled(output_file, to_export, 20, SAMPLE);
 
     // ── Cleanup ──────────────────────────────────────
     body_free(&sun);
