@@ -117,6 +117,11 @@ void run_solar_system(const char *output_file) {
     body_simulate(&halley, &sun_ptr, 1, DT, n_halley,
                   METHOD_RK2_SYMPLECTIC);
 
+    printf("Sun initial pos : ");
+    point_print(sun.trajectory.points[0]);
+    printf("Sun final pos   : ");
+    point_print(sun.trajectory.points[sun.trajectory.count - 1]);
+
     // ── Export ───────────────────────────────────────
     Body *to_export[] = {
         &mercury, &venus, &earth, &mars,
