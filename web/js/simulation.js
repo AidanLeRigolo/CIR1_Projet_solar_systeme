@@ -69,41 +69,62 @@ function initThree() {
 
 // ── Construction de la scène ─────────────────────
 
+// Longueur de la trainee en nombre de points JSON
+// 30 points = 30 jours de trainee visible
+const TRAIL_LENGTH = {
+    star:      0,    // pas de trainee pour le soleil
+    planet:    60,   // 60 jours
+    satellite: 90,   // 90 jours — plus longue car orbit plus courte
+    comet:     120,  // 120 jours — tres visible
+};
+
+let trailLines  = {};   // lignes de trainee dynamiques
+let trailPoints = {};   // historique des positions pour la trainee
+
 function buildScene() {
     // Soleil
-    const sunGeo  = new THREE.SphereGeometry(6, 32, 32);
+    const sunSize = getVisualSize('sun');
+    const sunGeo  = new THREE.SphereGeometry(sunSize, 32, 32);
     const sunMat  = new THREE.MeshBasicMaterial({ color: 0xFDB813 });
     const sunMesh = new THREE.Mesh(sunGeo, sunMat);
     scene.add(sunMesh);
+    bodyMeshes['sun'] = sunMesh;
 
     // Halo du soleil
-    const glowGeo = new THREE.SphereGeometry(9, 16, 16);
+    const glowGeo = new THREE.SphereGeometry(sunSize * 1.4, 16, 16);
     const glowMat = new THREE.MeshBasicMaterial({
-        color: 0xFDB813, transparent: true, opacity: 0.08
+        color: 0xFDB813, transparent: true, opacity: 0.06
     });
     scene.add(new THREE.Mesh(glowGeo, glowMat));
 
-    // Corps célestes
     for (const name of bodyNames) {
-        const cfg = BODY_CONFIG[name];
+        const cfg  = BODY_CONFIG[name];
         if (!cfg) continue;
 
+        const size = getVisualSize(name);
+
         // Mesh du corps
-        const geo  = new THREE.SphereGeometry(cfg.size, 16, 16);
+        const geo  = new THREE.SphereGeometry(size, 16, 16);
         const mat  = new THREE.MeshStandardMaterial({
-            color: cfg.color,
-            roughness: 0.8,
-            metalness: 0.0,
-            emissive: cfg.color,
-            emissiveIntensity: 0.1
+            color:             cfg.color,
+            roughness:         0.8,
+            metalness:         0.0,
+            emissive:          cfg.color,
+            emissiveIntensity: 0.15
         });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.userData.name = name;
         scene.add(mesh);
         bodyMeshes[name] = mesh;
 
-        // Orbite
+        // Orbite complete — tres discrete
         buildOrbitLine(name, cfg);
+
+        // Trainee lumineuse — initialisee vide
+        buildTrail(name, cfg);
+
+        // Historique des positions pour la trainee
+        trailPoints[name] = [];
     }
 }
 
@@ -111,27 +132,77 @@ function buildOrbitLine(name, cfg) {
     const pts = trajectories[name];
     if (!pts || pts.length < 2) return;
 
-    // Sous-échantillonner les satellites pour alléger
-    const stride = cfg.group === 'satellite' ? 3 : 1;
+    const stride = cfg.group === 'satellite' ? 2 : 1;
     const points = [];
-
-    for (let i = 0; i < pts.length; i += stride) {
+    for (let i = 0; i < pts.length; i += stride)
         points.push(posToVec3(pts[i][0]));
-    }
-    // Fermer la boucle
     points.push(points[0]);
 
     const geo = new THREE.BufferGeometry().setFromPoints(points);
+
+    // Tres discret — presque invisible, juste un guide
+    const opacity = cfg.group === 'satellite' ? 0.08 : 0.15;
     const mat = new THREE.LineBasicMaterial({
-        color: cfg.color,
-        transparent: true,
-        opacity: cfg.group === 'satellite' ? 0.2 : 0.4,
-        linewidth: 1
+        color: cfg.color, transparent: true, opacity
     });
 
     const line = new THREE.Line(geo, mat);
     scene.add(line);
     orbitLines[name] = line;
+}
+
+function buildTrail(name, cfg) {
+    const len = TRAIL_LENGTH[cfg.group] || 30;
+    if (len === 0) return;
+
+    // Geometry avec positions vides — mise a jour a chaque frame
+    const positions = new Float32Array(len * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position',
+        new THREE.BufferAttribute(positions, 3));
+    geo.setDrawRange(0, 0);
+
+    const mat = new THREE.LineBasicMaterial({
+        color:       cfg.color,
+        transparent: true,
+        opacity:     0.7,
+        linewidth:   1
+    });
+
+    const line = new THREE.Line(geo, mat);
+    scene.add(line);
+    trailLines[name] = line;
+}
+
+function updateTrails() {
+    for (const name of bodyNames) {
+        const line = trailLines[name];
+        if (!line) continue;
+
+        const cfg = BODY_CONFIG[name];
+        const len = TRAIL_LENGTH[cfg.group] || 30;
+        const pos = getPosition(name, timeIndex);
+        if (!pos) continue;
+
+        // Ajouter la position courante a l'historique
+        const hist = trailPoints[name];
+        hist.push(posToVec3(pos));
+        if (hist.length > len) hist.shift();
+
+        // Mettre a jour la geometry
+        const positions = line.geometry.attributes.position.array;
+        for (let i = 0; i < hist.length; i++) {
+            positions[i * 3]     = hist[i].x;
+            positions[i * 3 + 1] = hist[i].y;
+            positions[i * 3 + 2] = hist[i].z;
+        }
+        line.geometry.attributes.position.needsUpdate = true;
+        line.geometry.setDrawRange(0, hist.length);
+
+        // Degrade d'opacite — plus lumineux pres du corps
+        // (effet trainee lumineuse)
+        line.material.opacity = selectedBody === name ? 0.9 : 0.6;
+    }
 }
 
 function addStars() {
@@ -169,7 +240,7 @@ function animate() {
         document.getElementById('time-slider').value = timeIndex;
     }
 
-    // Mettre à jour positions des corps
+    // Mettre a jour positions
     for (const name of bodyNames) {
         const mesh = bodyMeshes[name];
         if (!mesh) continue;
@@ -178,6 +249,9 @@ function animate() {
         const v = posToVec3(pos);
         mesh.position.set(v.x, v.y, v.z);
     }
+
+    // Mettre a jour les trainees
+    updateTrails();
 
     updateControls();
     renderer.render(scene, camera);

@@ -1,29 +1,60 @@
 const BODY_CONFIG = {
-    sun:      { color: 0xFDB813, size: 6,   group: 'star'      },
-    mercury:  { color: 0xB5B5B5, size: 0.8, group: 'planet'    },
-    venus:    { color: 0xE8C47A, size: 1.2, group: 'planet'    },
-    earth:    { color: 0x4B9CD3, size: 1.4, group: 'planet'    },
-    mars:     { color: 0xC1440E, size: 1.0, group: 'planet'    },
-    jupiter:  { color: 0xC88B3A, size: 4.0, group: 'planet'    },
-    saturn:   { color: 0xE4D191, size: 3.5, group: 'planet'    },
-    uranus:   { color: 0x7DE8E8, size: 2.5, group: 'planet'    },
-    neptune:  { color: 0x5B86E5, size: 2.2, group: 'planet'    },
-    moon:     { color: 0xAAAAAA, size: 0.4, group: 'satellite'  },
-    phobos:   { color: 0xAA8866, size: 0.3, group: 'satellite'  },
-    deimos:   { color: 0x998877, size: 0.3, group: 'satellite'  },
-    io:       { color: 0xFFCC44, size: 0.5, group: 'satellite'  },
-    europa:   { color: 0xCCDDEE, size: 0.5, group: 'satellite'  },
-    titan:    { color: 0xDDAA55, size: 0.6, group: 'satellite'  },
-    rhea:     { color: 0xBBBBAA, size: 0.4, group: 'satellite'  },
-    titania:  { color: 0xAABBCC, size: 0.4, group: 'satellite'  },
-    oberon:   { color: 0x998899, size: 0.4, group: 'satellite'  },
-    triton:   { color: 0x99BBDD, size: 0.5, group: 'satellite'  },
-    proteus:  { color: 0x778899, size: 0.3, group: 'satellite'  },
-    halley:   { color: 0x88DDFF, size: 0.5, group: 'comet'      },
+    // color       : couleur hex Three.js
+    // radius_km   : rayon reel en km (NASA)
+    // group       : star / planet / satellite / comet
+    sun:      { color: 0xFDB813, radius_km: 696000,  group: 'star'      },
+    mercury:  { color: 0xB5B5B5, radius_km: 2440,    group: 'planet'    },
+    venus:    { color: 0xE8C47A, radius_km: 6052,    group: 'planet'    },
+    earth:    { color: 0x4B9CD3, radius_km: 6371,    group: 'planet'    },
+    mars:     { color: 0xC1440E, radius_km: 3390,    group: 'planet'    },
+    jupiter:  { color: 0xC88B3A, radius_km: 71492,   group: 'planet'    },
+    saturn:   { color: 0xE4D191, radius_km: 60268,   group: 'planet'    },
+    uranus:   { color: 0x7DE8E8, radius_km: 25559,   group: 'planet'    },
+    neptune:  { color: 0x5B86E5, radius_km: 24764,   group: 'planet'    },
+    moon:     { color: 0xAAAAAA, radius_km: 1737,    group: 'satellite'  },
+    phobos:   { color: 0xAA8866, radius_km: 11,      group: 'satellite'  },
+    deimos:   { color: 0x998877, radius_km: 6,       group: 'satellite'  },
+    io:       { color: 0xFFCC44, radius_km: 1822,    group: 'satellite'  },
+    europa:   { color: 0xCCDDEE, radius_km: 1561,    group: 'satellite'  },
+    titan:    { color: 0xDDAA55, radius_km: 2576,    group: 'satellite'  },
+    rhea:     { color: 0xBBBBAA, radius_km: 764,     group: 'satellite'  },
+    titania:  { color: 0xAABBCC, radius_km: 789,     group: 'satellite'  },
+    oberon:   { color: 0x998899, radius_km: 761,     group: 'satellite'  },
+    triton:   { color: 0x99BBDD, radius_km: 1354,    group: 'satellite'  },
+    proteus:  { color: 0x778899, radius_km: 210,     group: 'satellite'  },
+    halley:   { color: 0x88DDFF, radius_km: 5,       group: 'comet'      },
 };
 
 const G       = 6.67408e-11;
 const M_SUN   = 1.989e30;
+const AU      = 1.496e11;
+
+// Taille visuelle en unites Three.js depuis le rayon reel
+// Echelle logarithmique : evite que le soleil soit 100x plus grand
+// que la Terre tout en gardant les proportions relatives visibles
+// min_size : taille minimale pour rester visible meme en vue systeme
+function getVisualSize(name, zoomLevel = 1.0) {
+    const cfg = BODY_CONFIG[name];
+    if (!cfg) return 1;
+
+    // log10(rayon_km) normalise entre 0 et 1
+    // Phobos : log10(11) = 1.04 → petit
+    // Jupiter : log10(71492) = 4.85 → grand
+    // Soleil : log10(696000) = 5.84 → tres grand
+    const log_r   = Math.log10(cfg.radius_km);
+    const log_min = Math.log10(5);       // Phobos/Halley
+    const log_max = Math.log10(696000);  // Soleil
+
+    // Normalise entre 0 et 1
+    const t = (log_r - log_min) / (log_max - log_min);
+
+    // Taille visuelle entre 0.3 et 8 unites Three.js
+    const size_min = cfg.group === 'satellite' ? 0.3 : 0.5;
+    const size_max = 8.0;
+    const base_size = size_min + t * (size_max - size_min);
+
+    return base_size;
+}
 
 const BODY_MASSES = {
     mercury: 3.285e23, venus:   4.867e24, earth:   5.972e24,
