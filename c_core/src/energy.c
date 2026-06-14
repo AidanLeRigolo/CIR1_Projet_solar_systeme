@@ -109,7 +109,7 @@ void energy_test(void) {
 
     for (int m = 0; m < 4; m++) {
         Body earth = body_create("earth", M_EARTH, n_steps + 2);
-        init_planet_at_perihelion(&earth, PERI_EARTH, INCL_EARTH);
+        init_planet_at_perihelion(&earth, PERI_EARTH, ECC_EARTH, INCL_EARTH);
         body_simulate(&earth, &sun_ptr, 1, dt, n_steps, methods[m]);
         energy_check_conservation(&earth, &sun_ptr, 1);
         body_free(&earth);

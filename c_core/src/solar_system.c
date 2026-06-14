@@ -44,14 +44,14 @@ void run_solar_system(const char *output_file) {
     // ── Init ─────────────────────────────────────────
     body_init_point(&sun, sun_pos, zero);
 
-    init_planet_at_perihelion(&mercury, PERI_MERCURY, INCL_MERCURY);
-    init_planet_at_perihelion(&venus,   PERI_VENUS,   INCL_VENUS);
-    init_planet_at_perihelion(&earth,   PERI_EARTH,   INCL_EARTH);
-    init_planet_at_perihelion(&mars,    PERI_MARS,    INCL_MARS);
-    init_planet_at_perihelion(&jupiter, PERI_JUPITER, INCL_JUPITER);
-    init_planet_at_perihelion(&saturn,  PERI_SATURN,  INCL_SATURN);
-    init_planet_at_perihelion(&uranus,  PERI_URANUS,  INCL_URANUS);
-    init_planet_at_perihelion(&neptune, PERI_NEPTUNE, INCL_NEPTUNE);
+    init_planet_at_perihelion(&mercury, PERI_MERCURY, ECC_MERCURY, INCL_MERCURY);
+    init_planet_at_perihelion(&venus,   PERI_VENUS,   ECC_VENUS,   INCL_VENUS);
+    init_planet_at_perihelion(&earth,   PERI_EARTH,   ECC_EARTH,   INCL_EARTH);
+    init_planet_at_perihelion(&mars,    PERI_MARS,    ECC_MARS,    INCL_MARS);
+    init_planet_at_perihelion(&jupiter, PERI_JUPITER, ECC_JUPITER, INCL_JUPITER);
+    init_planet_at_perihelion(&saturn,  PERI_SATURN,  ECC_SATURN,  INCL_SATURN);
+    init_planet_at_perihelion(&uranus,  PERI_URANUS,  ECC_URANUS,  INCL_URANUS);
+    init_planet_at_perihelion(&neptune, PERI_NEPTUNE, ECC_NEPTUNE, INCL_NEPTUNE);
 
     // Satellites initialisés avant la simulation
     init_satellite_orbit(&moon,    &earth,   R_MOON);

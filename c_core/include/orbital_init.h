@@ -4,9 +4,9 @@
 #include "body.h"
 #include "physics.h"
 
-// Initialize a planet at perihelion with orbital inclination
-// Uses circular orbit approximation : v0 = sqrt(G * M_SUN / r)
-void init_planet_at_perihelion(Body *b, double perihelion, double inclination);
+// Initialize a planet at perihelion with vis-viva velocity
+// Works for any eccentricity including circular (ecc=0)
+void init_planet_at_perihelion(Body *b, double perihelion, double eccentricity, double inclination);
 
 // Initialize a body on an elliptical orbit using the vis-viva equation
 // v = sqrt( G * M_SUN * (2/r - 1/a) )

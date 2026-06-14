@@ -17,6 +17,16 @@
 #define M_URANUS  8.681e25
 #define M_NEPTUNE 1.024e26
 
+// Orbital eccentricities (dimensionless)
+#define ECC_MERCURY 0.2056
+#define ECC_VENUS   0.0068
+#define ECC_EARTH   0.0167
+#define ECC_MARS    0.0934
+#define ECC_JUPITER 0.0489
+#define ECC_SATURN  0.0565
+#define ECC_URANUS  0.0457
+#define ECC_NEPTUNE 0.0113
+
 // ── Planets : perihelion (m) ─────────────────────────
 #define PERI_MERCURY 4.600e10
 #define PERI_VENUS   1.075e11

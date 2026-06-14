@@ -455,7 +455,7 @@ void physics_test(void) {
     // Compare all 4 methods on Earth
     for (int m = 0; m < 4; m++) {
         Body earth = body_create("earth", 5.972e24, n_steps + 10);
-        init_planet_at_perihelion(&earth, 1.471e11, INCL_EARTH);
+        init_planet_at_perihelion(&earth, PERI_EARTH, ECC_EARTH, INCL_EARTH);
         body_simulate(&earth, &sun_ptr, 1, dt, n_steps, methods[m]);
         printf("[%-20s] last : ", method_name(methods[m]));
         point_print(earth.trajectory.points[earth.trajectory.count - 1]);
@@ -466,7 +466,7 @@ void physics_test(void) {
     printf("\n[System] Earth + Moon (RK2 symplectic, dt=1h) :\n");
 
     Body earth = body_create("earth", 5.972e24, steps_moon + 10);
-    init_planet_at_perihelion(&earth, 1.471e11, INCL_EARTH);
+    init_planet_at_perihelion(&earth, PERI_EARTH, ECC_EARTH, INCL_EARTH);
 
     Body moon = body_create("moon", 7.342e22, steps_moon + 10);
     init_satellite_orbit(&moon, &earth, 3.844e8);  // plus de earth_pos0
