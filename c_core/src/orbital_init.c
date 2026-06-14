@@ -1,14 +1,28 @@
 #include <math.h>
 #include "orbital_init.h"
 
-void init_planet_at_perihelion(Body *b, double perihelion, double inclination) {
+void init_planet_at_perihelion(Body *b, double perihelion,
+                                double eccentricity,
+                                double inclination) {
+    // Position at perihelion on X axis
     Vector3 pos = {perihelion, 0.0, 0.0};
-    double  v0  = sqrt(G * M_SUN / perihelion);
+
+    // Semi-major axis from perihelion and eccentricity
+    // perihelion = a * (1 - e)  →  a = perihelion / (1 - e)
+    double a = perihelion / (1.0 - eccentricity);
+
+    // Vis-viva equation at perihelion :
+    // v = sqrt( G * M_SUN * (2/r - 1/a) )
+    // Same formula used for Halley — works for all eccentricities
+    double v0 = sqrt(G * M_SUN * (2.0 / perihelion - 1.0 / a));
+
+    // Velocity perpendicular to radius, rotated by inclination
     Vector3 vel = {
         0.0,
         v0 * cos(inclination),
         v0 * sin(inclination)
     };
+
     body_init_point(b, pos, vel);
 }
 
