@@ -32,8 +32,8 @@ function buildBodyList() {
 
 function selectBody(name) {
     selectedBody       = name;
-    isTransitioning    = true;   // ← ajouter
-    transitionProgress = 0;      // ← ajouter
+    isTransitioning    = true;
+    transitionProgress = 0;
     const cfg = BODY_CONFIG[name];
 
     // Zoom automatique selon le type
