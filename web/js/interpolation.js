@@ -1,3 +1,4 @@
+// interpolation.js
 // Interpolation Hermite cubique entre deux points consécutifs
 // Utilise les vitesses physiques du JSON — pas de déformation des orbites
 

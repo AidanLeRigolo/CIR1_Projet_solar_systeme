@@ -245,7 +245,7 @@ function animate() {
 function updateTrails() {
     for (const name of bodyNames) {
         const line = trailLines[name];
-        if (!line || !line.visible) continue;
+        if (!line) continue;
 
         const cfg = BODY_CONFIG[name];
         const len = TRAIL_LENGTH[cfg.group] || 0;
