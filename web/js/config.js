@@ -27,35 +27,26 @@ const BODY_CONFIG = {
 
 const G       = 6.67408e-11;
 const M_SUN   = 1.989e30;
-const AU      = 1.496e11;
 
 // Taille visuelle en unites Three.js depuis le rayon reel
 // Echelle logarithmique : evite que le soleil soit 100x plus grand
 // que la Terre tout en gardant les proportions relatives visibles
 // min_size : taille minimale pour rester visible meme en vue systeme
-function getVisualSize(name, zoomLevel = 1.0) {
+// config.js — tailles de base très petites
+function getVisualSize(name) {
     const cfg = BODY_CONFIG[name];
-    if (!cfg) return 1;
+    if (!cfg) return 0.5;
 
-    // log10(rayon_km) normalise entre 0 et 1
-    // Phobos : log10(11) = 1.04 → petit
-    // Jupiter : log10(71492) = 4.85 → grand
-    // Soleil : log10(696000) = 5.84 → tres grand
     const log_r   = Math.log10(cfg.radius_km);
-    const log_min = Math.log10(5);       // Phobos/Halley
-    const log_max = Math.log10(696000);  // Soleil
-
-    // Normalise entre 0 et 1
+    const log_min = Math.log10(5);
+    const log_max = Math.log10(696000);
     const t = (log_r - log_min) / (log_max - log_min);
 
-    // Taille visuelle entre 0.3 et 8 unites Three.js
-    const size_min = cfg.group === 'satellite' ? 0.3 : 0.5;
-    const size_max = 8.0;
-    const base_size = size_min + t * (size_max - size_min);
-
-    return base_size;
+    // Tailles beaucoup plus petites — entre 0.1 et 3 unités
+    const size_min = 0.1;
+    const size_max = 3.0;
+    return size_min + t * (size_max - size_min);
 }
-
 const BODY_MASSES = {
     mercury: 3.285e23, venus:   4.867e24, earth:   5.972e24,
     mars:    6.390e23, jupiter: 1.898e27, saturn:  5.683e26,

@@ -94,3 +94,7 @@ Limite 3 — Le Soleil est fixe
 Dans la réalité le Soleil bouge légèrement autour du centre de masse du système solaire (barycentre) à cause de Jupiter principalement. C'est un déplacement de ~700 000 km. Pour la précision du projet c'est négligeable mais physiquement intéressant.
 Limite 4 — Pas de précession des orbites
 Les orbites des planètes tournent lentement dans l'espace (précession de Mercure célèbre). C'est un effet relativiste que Newton ne capture pas — impossible à corriger sans relativité générale.
+
+
+SERVEUR LOCALE 
+python -m http.server 8000

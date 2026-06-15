@@ -124,6 +124,7 @@ void run_solar_system(const char *output_file) {
 
     // ── Export ───────────────────────────────────────
     Body *to_export[] = {
+        &sun,
         &mercury, &venus, &earth, &mars,
         &jupiter, &saturn, &uranus, &neptune,
         &moon,
@@ -134,7 +135,7 @@ void run_solar_system(const char *output_file) {
         &triton, &proteus,
         &halley
     };
-    json_export_all_sampled(output_file, to_export, 20, SAMPLE);
+    json_export_all_sampled(output_file, to_export, 21, SAMPLE);
 
     // ── Cleanup ──────────────────────────────────────
     body_free(&sun);

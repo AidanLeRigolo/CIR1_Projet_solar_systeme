@@ -31,44 +31,65 @@ function buildBodyList() {
 }
 
 function selectBody(name) {
-    selectedBody = name;
-
-    // Réinitialiser le rayon de la caméra pour zoomer sur le corps
+    selectedBody       = name;
+    isTransitioning    = true;   // ← ajouter
+    transitionProgress = 0;      // ← ajouter
     const cfg = BODY_CONFIG[name];
-    if (cfg) {
-        const zoomRadius = cfg.group === 'satellite' ? 10
-                         : cfg.group === 'planet'    ? 50
-                         : 200;
-        spherical.radius = zoomRadius;
-    }
+
+    // Zoom automatique selon le type
+    const zoomRadius = {
+        star:      30,
+        planet:    50,
+        satellite: 3,
+        comet:     40,
+    }[cfg ? cfg.group : 'planet'] || 50;
+
+    spherical.radius = zoomRadius;
 
     document.querySelectorAll('.body-item').forEach(el =>
         el.classList.toggle('selected', el.dataset.name === name));
-
     document.getElementById('body-name').textContent =
         name.charAt(0).toUpperCase() + name.slice(1);
 
-    // Mettre en évidence l'orbite sélectionnée
+    // Mettre en évidence la traînée
     for (const [n, line] of Object.entries(orbitLines)) {
-        line.material.opacity = n === name ? 0.9 : 0.2;
+        line.material.opacity = n === name ? 0.5 : (
+            BODY_CONFIG[n]?.group === 'satellite' ? 0.06 : 0.12
+        );
     }
 }
 
 function updateSidebar() {
-    if (!selectedBody) return;
+    if (!selectedBody || !dataLoaded) return;
 
     const pos = getPosition(selectedBody, timeIndex);
     const vel = getVelocity(selectedBody, timeIndex);
     if (!pos || !vel) return;
 
-    document.getElementById('stat-distance').textContent = formatDistance(pos);
-    document.getElementById('stat-velocity').textContent = formatVelocity(vel);
+    // Distance au Soleil
+    const sunPos = getPosition('sun', timeIndex) || [0, 0, 0];
+    const dx = pos[0] - sunPos[0];
+    const dy = pos[1] - sunPos[1];
+    const dz = pos[2] - sunPos[2];
+    const d  = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
+    // formatDistance attend une distance en metres, pas un vecteur pos
+    const au = d / 1.496e11;
+    document.getElementById('stat-distance').textContent =
+        au < 0.1
+        ? (d / 1e3).toExponential(2) + ' km'
+        : au.toFixed(4) + ' AU';
+
+    // formatVelocity attend un vecteur vitesse
+    const v = Math.sqrt(vel[0]**2 + vel[1]**2 + vel[2]**2);
+    document.getElementById('stat-velocity').textContent =
+        (v / 1000).toFixed(2) + ' km/s';
+
+    // Énergie
     const mass = BODY_MASSES[selectedBody] || 1e20;
-    const d    = Math.sqrt(pos[0]**2 + pos[1]**2 + pos[2]**2);
     const v2   = vel[0]**2 + vel[1]**2 + vel[2]**2;
     const ec   =  0.5 * mass * v2;
-    const ep   = -(G * M_SUN * mass) / d;
+    const ep   = -(G * M_SUN * mass) / Math.max(d, 1e6);
 
     document.getElementById('stat-ec').textContent     = formatEnergy(ec);
     document.getElementById('stat-ep').textContent     = formatEnergy(ep);
