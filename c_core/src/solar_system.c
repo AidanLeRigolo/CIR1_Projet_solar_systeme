@@ -7,7 +7,7 @@
 #include "constants.h"
 
 #define DT      1800.0
-#define N_STEPS (48 * 365 * 5)
+#define N_STEPS (48 * 365 * 20)
 #define SAMPLE  48
 
 void run_solar_system(const char *output_file) {
@@ -110,7 +110,7 @@ void run_solar_system(const char *output_file) {
 
     // ── Halley — séparée ─────────────────────────────
     printf("\n[2/2] Simulating Halley...\n");
-    int   n_halley = 48 * 365 * 10;
+    int   n_halley = 48 * 365 * 20;
     Body  halley   = body_create("halley", M_HALLEY, n_halley + 2);
     init_elliptic_orbit(&halley, PERI_HALLEY, APHA_HALLEY, INCL_HALLEY);
     Body *sun_ptr  = &sun;

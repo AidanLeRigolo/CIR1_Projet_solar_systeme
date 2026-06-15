@@ -34,28 +34,19 @@ function selectBody(name) {
     selectedBody       = name;
     isTransitioning    = true;
     transitionProgress = 0;
-    const cfg = BODY_CONFIG[name];
 
-    // Zoom automatique selon le type
-    const zoomRadius = {
-        star:      30,
-        planet:    50,
-        satellite: 3,
-        comet:     40,
-    }[cfg ? cfg.group : 'planet'] || 50;
-
-    spherical.radius = zoomRadius;
+    // Zoom : caméra à 10 rayons du corps
+    const size       = getBodySize(name);
+    spherical.radius = size * 10;
 
     document.querySelectorAll('.body-item').forEach(el =>
         el.classList.toggle('selected', el.dataset.name === name));
     document.getElementById('body-name').textContent =
         name.charAt(0).toUpperCase() + name.slice(1);
 
-    // Mettre en évidence la traînée
     for (const [n, line] of Object.entries(orbitLines)) {
-        line.material.opacity = n === name ? 0.5 : (
-            BODY_CONFIG[n]?.group === 'satellite' ? 0.06 : 0.12
-        );
+        line.material.opacity = n === name ? 0.6
+            : (BODY_CONFIG[n]?.group === 'satellite' ? 0.08 : 0.15);
     }
 }
 

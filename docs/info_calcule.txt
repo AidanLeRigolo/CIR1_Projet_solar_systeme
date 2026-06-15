@@ -98,3 +98,6 @@ Les orbites des planètes tournent lentement dans l'espace (précession de Mercu
 
 SERVEUR LOCALE 
 python -m http.server 8000
+
+MAKE
+mingw32-make

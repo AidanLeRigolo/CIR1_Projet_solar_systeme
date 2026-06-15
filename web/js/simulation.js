@@ -1,25 +1,22 @@
-// simulation.js — moteur Three.js
-
 let scene, camera, renderer;
-let bodyMeshes  = {};
-let orbitLines  = {};
-let trailLines  = {};
-let trailPoints = {};
-let timeIndex   = 0;
-let playing     = true;
-let speed       = 10;
-let selectedBody = null;
+let bodyMeshes       = {};
+let orbitLines       = {};
+let trailLines       = {};
+let trailPoints      = {};
+let timeIndex        = 0;
+let playing          = true;
+let speed            = 10;
+let selectedBody     = null;
 let raycaster, mouse;
-let frameAcc    = 0;
+let frameAcc         = 0;
+let isTransitioning  = false;
+let transitionProgress = 0;
 
 // Caméra sphérique
-let spherical    = { theta: 0.5, phi: 1.0, radius: 500 };
+let spherical    = { theta: 0.5, phi: 1.0, radius: 80 };
 let cameraTarget = new THREE.Vector3(0, 0, 0);
 let isMouseDown  = false;
 let lastMX = 0, lastMY = 0;
-
-let isTransitioning    = false;
-let transitionProgress = 0;
 
 const TRAIL_LENGTH = {
     star:      0,
@@ -33,10 +30,13 @@ const TRAIL_LENGTH = {
 function initThree() {
     const container = document.getElementById('canvas-container');
 
-    scene    = new THREE.Scene();
-    camera   = new THREE.PerspectiveCamera(
-        45, container.offsetWidth / container.offsetHeight, 0.01, 200000);
-    camera.position.set(0, 200, 400);
+    scene  = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(
+        45,
+        container.offsetWidth / container.offsetHeight,
+        0.000001,   // near très petit pour zoomer sur Phobos
+        500000
+    );
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.offsetWidth, container.offsetHeight);
@@ -46,13 +46,11 @@ function initThree() {
 
     setupControls();
     addStars();
-
-    const sunLight = new THREE.PointLight(0xffffff, 2, 0, 1);
-    scene.add(sunLight);
-    scene.add(new THREE.AmbientLight(0x111122, 0.8));
-
-    // Marqueur barycentre
     addBarycenterMarker();
+
+    const sunLight = new THREE.PointLight(0xffffff, 2, 0, 0);
+    scene.add(sunLight);
+    scene.add(new THREE.AmbientLight(0x111122, 0.6));
 
     raycaster = new THREE.Raycaster();
     mouse     = new THREE.Vector2();
@@ -71,9 +69,9 @@ function initThree() {
 // ── Barycentre ───────────────────────────────────
 
 function addBarycenterMarker() {
-    const mat  = new THREE.LineBasicMaterial({
-        color: 0x666666, transparent: true, opacity: 0.6 });
-    const s    = 2;
+    const mat = new THREE.LineBasicMaterial({
+        color: 0x555555, transparent: true, opacity: 0.5 });
+    const s = kmToScene(2_000_000);  // croix de 2 millions de km
     [
         [[-s,0,0],[s,0,0]],
         [[0,-s,0],[0,s,0]],
@@ -89,39 +87,37 @@ function addBarycenterMarker() {
 
 function buildScene() {
     // Soleil
-    const sunGeo  = new THREE.SphereGeometry(0.8, 16, 16);
-    const sunMat  = new THREE.MeshBasicMaterial({ color: 0xFDB813 });
-    const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    const sunRadius = getBodySize('sun');
+    const sunGeo    = new THREE.SphereGeometry(sunRadius, 32, 32);
+    const sunMat    = new THREE.MeshBasicMaterial({ color: 0xFDB813 });
+    const sunMesh   = new THREE.Mesh(sunGeo, sunMat);
     sunMesh.userData.name = 'sun';
     scene.add(sunMesh);
     bodyMeshes['sun'] = sunMesh;
 
-    const glowGeo = new THREE.SphereGeometry(1.3, 8, 8);
+    // Halo soleil — enfant du mesh
+    const glowGeo = new THREE.SphereGeometry(sunRadius * 1.4, 16, 16);
     const glowMat = new THREE.MeshBasicMaterial({
-        color: 0xFDB813, transparent: true, opacity: 0.05 });
-    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-
-    // Ajouter comme enfant du Soleil au lieu de la scène
-    sunMesh.add(glowMesh);
+        color: 0xFDB813, transparent: true, opacity: 0.06 });
+    sunMesh.add(new THREE.Mesh(glowGeo, glowMat));
 
     for (const name of bodyNames) {
         if (name === 'sun') continue;
-        const cfg = BODY_CONFIG[name];
+        const cfg  = BODY_CONFIG[name];
         if (!cfg) continue;
 
-        // Taille logarithmique entre 0.02 et 0.7 unités Three.js
-        const logFactor = Math.log10(cfg.radius_km + 1) / Math.log10(696000);
-        const sizeScene = 0.02 + logFactor * 0.68;
+        const size = getBodySize(name);
 
-        const geo = new THREE.SphereGeometry(sizeScene, 12, 12);
+        const geo = new THREE.SphereGeometry(size, 16, 16);
         const mat = new THREE.MeshStandardMaterial({
             color:             cfg.color,
             emissive:          cfg.color,
             emissiveIntensity: 0.2,
             roughness:         0.8,
         });
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh      = new THREE.Mesh(geo, mat);
         mesh.userData.name = name;
+        mesh.visible    = false;  // caché par défaut — LOD gérera
         scene.add(mesh);
         bodyMeshes[name] = mesh;
 
@@ -139,11 +135,11 @@ function buildOrbitLine(name, cfg) {
     const points = [];
     for (let i = 0; i < pts.length; i += stride)
         points.push(posToVec3(pts[i][0]));
-    points.push(points[0]);
+    points.push(points[0].clone());
 
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const opacity = cfg.group === 'satellite' ? 0.06 : 0.12;
-    const mat = new THREE.LineBasicMaterial({
+    const geo     = new THREE.BufferGeometry().setFromPoints(points);
+    const opacity = cfg.group === 'satellite' ? 0.08 : 0.15;
+    const mat     = new THREE.LineBasicMaterial({
         color: cfg.color, transparent: true, opacity
     });
     const line = new THREE.Line(geo, mat);
@@ -156,7 +152,7 @@ function buildTrail(name, cfg) {
     if (len === 0) return;
 
     const positions = new Float32Array(len * 3);
-    const geo = new THREE.BufferGeometry();
+    const geo       = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setDrawRange(0, 0);
 
@@ -168,24 +164,37 @@ function buildTrail(name, cfg) {
     trailLines[name] = line;
 }
 
+// Position interpolée depuis la spline — évite la téléportation
+function getSmoothedPosition(name) {
+    const spline = splines[name];
+    if (!spline) return null;
+
+    // t entre 0 et 1 sur la durée totale
+    const t = timeIndex / (maxSteps() - 1);
+    return spline.getPoint(t);  // retourne un THREE.Vector3 déjà en unités scène
+}
+
 // ── Étoiles ───────────────────────────────────────
 
 function addStars() {
     const count     = 6000;
     const positions = new Float32Array(count * 3);
+    const AU        = kmToScene(149_600_000);
     for (let i = 0; i < count; i++) {
-        positions[i*3]   = (Math.random() - 0.5) * 60000;
-        positions[i*3+1] = (Math.random() - 0.5) * 60000;
-        positions[i*3+2] = (Math.random() - 0.5) * 60000;
+        positions[i*3]   = (Math.random() - 0.5) * AU * 600;
+        positions[i*3+1] = (Math.random() - 0.5) * AU * 600;
+        positions[i*3+2] = (Math.random() - 0.5) * AU * 600;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const mat = new THREE.PointsMaterial({
-        color: 0xffffff, size: 1.5, transparent: true, opacity: 0.8 });
+        color: 0xffffff, size: kmToScene(50_000),
+        transparent: true, opacity: 0.8
+    });
     scene.add(new THREE.Points(geo, mat));
 }
 
-// ── Animation ─────────────────────────────────────
+// ── Animation + LOD ───────────────────────────────
 
 function animate() {
     requestAnimationFrame(animate);
@@ -199,39 +208,39 @@ function animate() {
         document.getElementById('time-slider').value = timeIndex;
     }
 
-    // Mettre à jour positions et visibilité
+    // Mettre à jour positions
     for (const name of ['sun', ...bodyNames]) {
         const mesh = bodyMeshes[name];
         if (!mesh) continue;
+
+    // Utilise la spline si disponible, sinon position brute
+    const smoothed = getSmoothedPosition(name);
+    if (smoothed) {
+        mesh.position.copy(smoothed);
+    } else {
         const pos = getPosition(name, timeIndex);
         if (!pos) continue;
-        const v = posToVec3(pos);
-        mesh.position.set(v.x, v.y, v.z);
-
-        // Distance caméra → corps
-        const distCam = camera.position.distanceTo(mesh.position);
-        const cfg     = BODY_CONFIG[name];
-
-        // Seuil d'apparition selon le type de corps
-        // En dessous de ce seuil, le corps est visible
-        const threshold = {
-            star:      999999,  // toujours visible
-            planet:    80,      // visible si caméra à moins de 80 unités
-            satellite: 8,       // visible si caméra à moins de 8 unités
-            comet:     60,
-        }[cfg.group] || 80;
-
-        mesh.visible = distCam < threshold;
+        mesh.position.copy(posToVec3(pos));
     }
+}
 
-    // Soleil toujours visible
-    if (bodyMeshes['sun']) {
-        const sunPos = getPosition('sun', timeIndex);
-        if (sunPos) {
-            const v = posToVec3(sunPos);
-            bodyMeshes['sun'].position.set(v.x, v.y, v.z);
+    // LOD — visibilité selon distance caméra
+    for (const name of bodyNames) {
+        const mesh = bodyMeshes[name];
+        if (!mesh) continue;
+
+        const distCam   = camera.position.distanceTo(mesh.position);
+        const threshold = getVisibilityThreshold(name);
+        mesh.visible    = distCam < threshold;
+
+        // Orbite : visible si caméra pas trop loin du corps parent
+        if (orbitLines[name]) {
+            const cfg = BODY_CONFIG[name];
+            if (cfg.group === 'satellite') {
+                // Orbite satellite visible seulement en zoom local
+                orbitLines[name].visible = distCam < threshold * 3;
+            }
         }
-        bodyMeshes['sun'].visible = true;
     }
 
     updateTrails();
@@ -241,7 +250,7 @@ function animate() {
     updateSimTime();
 }
 
-// ── Traînées ──────────────────────────────────────
+// ── Traînées ─────────────────────────────────────
 
 function updateTrails() {
     for (const name of bodyNames) {
@@ -250,11 +259,17 @@ function updateTrails() {
 
         const cfg = BODY_CONFIG[name];
         const len = TRAIL_LENGTH[cfg.group] || 0;
-        const pos = getPosition(name, timeIndex);
-        if (!pos) continue;
+
+        // Position lissée pour la traînée aussi
+        const smoothed = getSmoothedPosition(name);
+        const v = smoothed || (() => {
+            const pos = getPosition(name, timeIndex);
+            return pos ? posToVec3(pos) : null;
+        })();
+        if (!v) continue;
 
         const hist = trailPoints[name];
-        hist.push(posToVec3(pos));
+        hist.push(v.clone());
         if (hist.length > len) hist.shift();
 
         const arr = line.geometry.attributes.position.array;
@@ -265,8 +280,6 @@ function updateTrails() {
         }
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.setDrawRange(0, hist.length);
-
-        // Plus lumineux si sélectionné
         line.material.opacity = (name === selectedBody) ? 1.0 : 0.7;
     }
 }
@@ -275,11 +288,9 @@ function updateTrails() {
 
 function setupControls() {
     const el = renderer.domElement;
-
     el.addEventListener('mousedown', e => {
         isMouseDown = true;
-        lastMX = e.clientX;
-        lastMY = e.clientY;
+        lastMX = e.clientX; lastMY = e.clientY;
     });
     el.addEventListener('mouseup',    () => { isMouseDown = false; });
     el.addEventListener('mouseleave', () => { isMouseDown = false; });
@@ -288,12 +299,11 @@ function setupControls() {
         spherical.theta -= (e.clientX - lastMX) * 0.005;
         spherical.phi    = Math.max(0.05, Math.min(Math.PI - 0.05,
                            spherical.phi + (e.clientY - lastMY) * 0.005));
-        lastMX = e.clientX;
-        lastMY = e.clientY;
+        lastMX = e.clientX; lastMY = e.clientY;
     });
     el.addEventListener('wheel', e => {
         spherical.radius *= e.deltaY > 0 ? 1.08 : 0.92;
-        spherical.radius  = Math.max(0.001, Math.min(8000, spherical.radius));
+        spherical.radius  = Math.max(1e-6, Math.min(500, spherical.radius));
         e.preventDefault();
     }, { passive: false });
 }
@@ -301,9 +311,7 @@ function setupControls() {
 function updateControls() {
     if (selectedBody && bodyMeshes[selectedBody]) {
         const target = bodyMeshes[selectedBody].position;
-
         if (isTransitioning) {
-            // Transition douce vers le nouveau corps
             transitionProgress += 0.05;
             if (transitionProgress >= 1) {
                 transitionProgress = 1;
@@ -311,7 +319,6 @@ function updateControls() {
             }
             cameraTarget.lerp(target, transitionProgress);
         } else {
-            // Suivi exact sans lag — colle au corps
             cameraTarget.copy(target);
         }
     } else {
@@ -331,24 +338,15 @@ function updateControls() {
 // ── Clic ─────────────────────────────────────────
 
 function onCanvasClick(e) {
-    // Ignorer si on était en train de draguer
     if (isMouseDown) return;
-
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
     mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-
-    // Augmenter le threshold du raycaster pour les petits corps
-    raycaster.params.Points.threshold = 2;
-
-    const meshList = Object.values(bodyMeshes);
-    const hits     = raycaster.intersectObjects(meshList);
-
-    if (hits.length > 0) {
+    const hits = raycaster.intersectObjects(Object.values(bodyMeshes));
+    if (hits.length > 0)
         selectBody(hits[0].object.userData.name);
-    }
 }
 
 // ── Temps ─────────────────────────────────────────
@@ -364,7 +362,7 @@ function updateSimTime() {
 
 function onResize() {
     const container = document.getElementById('canvas-container');
-    camera.aspect = container.offsetWidth / container.offsetHeight;
+    camera.aspect   = container.offsetWidth / container.offsetHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.offsetWidth, container.offsetHeight);
 }
