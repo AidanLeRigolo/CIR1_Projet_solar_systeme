@@ -1,14 +1,16 @@
+// simulation.js — moteur Three.js avec interpolation Hermite
+
 let scene, camera, renderer;
 let bodyMeshes       = {};
 let orbitLines       = {};
 let trailLines       = {};
 let trailPoints      = {};
-let timeIndex        = 0;
+let timeFloat        = 0.0;   // temps continu en jours
+let timeIndex        = 0;     // partie entière pour le slider
 let playing          = true;
 let speed            = 10;
 let selectedBody     = null;
 let raycaster, mouse;
-let frameAcc         = 0;
 let isTransitioning  = false;
 let transitionProgress = 0;
 
@@ -34,7 +36,7 @@ function initThree() {
     camera = new THREE.PerspectiveCamera(
         45,
         container.offsetWidth / container.offsetHeight,
-        0.000001,   // near très petit pour zoomer sur Phobos
+        0.000001,
         500000
     );
 
@@ -71,7 +73,7 @@ function initThree() {
 function addBarycenterMarker() {
     const mat = new THREE.LineBasicMaterial({
         color: 0x555555, transparent: true, opacity: 0.5 });
-    const s = kmToScene(2_000_000);  // croix de 2 millions de km
+    const s = kmToScene(2_000_000);
     [
         [[-s,0,0],[s,0,0]],
         [[0,-s,0],[0,s,0]],
@@ -95,7 +97,7 @@ function buildScene() {
     scene.add(sunMesh);
     bodyMeshes['sun'] = sunMesh;
 
-    // Halo soleil — enfant du mesh
+    // Halo soleil enfant du mesh — suit automatiquement
     const glowGeo = new THREE.SphereGeometry(sunRadius * 1.4, 16, 16);
     const glowMat = new THREE.MeshBasicMaterial({
         color: 0xFDB813, transparent: true, opacity: 0.06 });
@@ -103,21 +105,20 @@ function buildScene() {
 
     for (const name of bodyNames) {
         if (name === 'sun') continue;
-        const cfg  = BODY_CONFIG[name];
+        const cfg = BODY_CONFIG[name];
         if (!cfg) continue;
 
         const size = getBodySize(name);
-
-        const geo = new THREE.SphereGeometry(size, 16, 16);
-        const mat = new THREE.MeshStandardMaterial({
+        const geo  = new THREE.SphereGeometry(size, 16, 16);
+        const mat  = new THREE.MeshStandardMaterial({
             color:             cfg.color,
             emissive:          cfg.color,
             emissiveIntensity: 0.2,
             roughness:         0.8,
         });
-        const mesh      = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, mat);
         mesh.userData.name = name;
-        mesh.visible    = false;  // caché par défaut — LOD gérera
+        mesh.visible = false;
         scene.add(mesh);
         bodyMeshes[name] = mesh;
 
@@ -164,26 +165,16 @@ function buildTrail(name, cfg) {
     trailLines[name] = line;
 }
 
-// Position interpolée depuis la spline — évite la téléportation
-function getSmoothedPosition(name) {
-    const spline = splines[name];
-    if (!spline) return null;
-
-    // t entre 0 et 1 sur la durée totale
-    const t = timeIndex / (maxSteps() - 1);
-    return spline.getPoint(t);  // retourne un THREE.Vector3 déjà en unités scène
-}
-
 // ── Étoiles ───────────────────────────────────────
 
 function addStars() {
     const count     = 6000;
     const positions = new Float32Array(count * 3);
-    const AU        = kmToScene(149_600_000);
+    const spread    = kmToScene(149_600_000) * 600;
     for (let i = 0; i < count; i++) {
-        positions[i*3]   = (Math.random() - 0.5) * AU * 600;
-        positions[i*3+1] = (Math.random() - 0.5) * AU * 600;
-        positions[i*3+2] = (Math.random() - 0.5) * AU * 600;
+        positions[i*3]   = (Math.random() - 0.5) * spread;
+        positions[i*3+1] = (Math.random() - 0.5) * spread;
+        positions[i*3+2] = (Math.random() - 0.5) * spread;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -199,47 +190,46 @@ function addStars() {
 function animate() {
     requestAnimationFrame(animate);
 
+    // Avancement du temps continu
     if (playing) {
-        frameAcc += speed;
-        while (frameAcc >= 10) {
-            timeIndex = (timeIndex + 1) % maxSteps();
-            frameAcc -= 10;
-        }
+        timeFloat += speed / 60.0;
+        if (timeFloat >= maxSteps()) timeFloat = 0;
+        timeIndex = Math.floor(timeFloat);
         document.getElementById('time-slider').value = timeIndex;
     }
 
-    // Mettre à jour positions
+    // Mise à jour positions avec interpolation Hermite
     for (const name of ['sun', ...bodyNames]) {
         const mesh = bodyMeshes[name];
         if (!mesh) continue;
-
-    // Utilise la spline si disponible, sinon position brute
-    const smoothed = getSmoothedPosition(name);
-    if (smoothed) {
-        mesh.position.copy(smoothed);
-    } else {
-        const pos = getPosition(name, timeIndex);
-        if (!pos) continue;
-        mesh.position.copy(posToVec3(pos));
+        const pos = getInterpolatedPosition(name, timeFloat);
+        if (pos) mesh.position.copy(pos);
     }
-}
 
     // LOD — visibilité selon distance caméra
     for (const name of bodyNames) {
         const mesh = bodyMeshes[name];
         if (!mesh) continue;
 
+        const cfg       = BODY_CONFIG[name];
         const distCam   = camera.position.distanceTo(mesh.position);
         const threshold = getVisibilityThreshold(name);
-        mesh.visible    = distCam < threshold;
 
-        // Orbite : visible si caméra pas trop loin du corps parent
-        if (orbitLines[name]) {
-            const cfg = BODY_CONFIG[name];
-            if (cfg.group === 'satellite') {
-                // Orbite satellite visible seulement en zoom local
-                orbitLines[name].visible = distCam < threshold * 3;
-            }
+        // Satellites : seuil élargi pour apparaître avec leur planète
+        const effective = cfg.group === 'satellite'
+            ? threshold * 50
+            : threshold;
+
+        mesh.visible = distCam < effective;
+
+        // Orbite satellite — visible en zoom local seulement
+        if (orbitLines[name] && cfg.group === 'satellite') {
+            orbitLines[name].visible = distCam < effective * 3;
+        }
+
+        // Traînée — visible si le mesh est visible
+        if (trailLines[name]) {
+            trailLines[name].visible = mesh.visible;
         }
     }
 
@@ -255,21 +245,16 @@ function animate() {
 function updateTrails() {
     for (const name of bodyNames) {
         const line = trailLines[name];
-        if (!line) continue;
+        if (!line || !line.visible) continue;
 
         const cfg = BODY_CONFIG[name];
         const len = TRAIL_LENGTH[cfg.group] || 0;
 
-        // Position lissée pour la traînée aussi
-        const smoothed = getSmoothedPosition(name);
-        const v = smoothed || (() => {
-            const pos = getPosition(name, timeIndex);
-            return pos ? posToVec3(pos) : null;
-        })();
-        if (!v) continue;
+        const pos = getInterpolatedPosition(name, timeFloat);
+        if (!pos) continue;
 
         const hist = trailPoints[name];
-        hist.push(v.clone());
+        hist.push(pos.clone());
         if (hist.length > len) hist.shift();
 
         const arr = line.geometry.attributes.position.array;
@@ -303,7 +288,7 @@ function setupControls() {
     });
     el.addEventListener('wheel', e => {
         spherical.radius *= e.deltaY > 0 ? 1.08 : 0.92;
-        spherical.radius  = Math.max(1e-6, Math.min(500, spherical.radius));
+        spherical.radius  = Math.max(1e-6, Math.min(5000, spherical.radius));
         e.preventDefault();
     }, { passive: false });
 }
@@ -349,7 +334,7 @@ function onCanvasClick(e) {
         selectBody(hits[0].object.userData.name);
 }
 
-// ── Temps ─────────────────────────────────────────
+// ── Temps affiché ────────────────────────────────
 
 function updateSimTime() {
     const years = Math.floor(timeIndex / 365);

@@ -101,3 +101,5 @@ python -m http.server 8000
 
 MAKE
 mingw32-make
+
+trajectoir inclinaison a revoir, comete de halley a revoir aussi

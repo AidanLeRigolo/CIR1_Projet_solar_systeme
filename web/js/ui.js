@@ -100,7 +100,8 @@ function bindControls() {
     });
 
     document.getElementById('time-slider').addEventListener('input', e => {
-        timeIndex = parseInt(e.target.value);
+        timeFloat = parseInt(e.target.value);
+        timeIndex = Math.floor(timeFloat);
         playing   = false;
         document.getElementById('btn-play').textContent = '▶ Play';
     });
