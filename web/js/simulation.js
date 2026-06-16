@@ -139,7 +139,7 @@ function buildOrbitLine(name, cfg) {
     points.push(points[0].clone());
 
     const geo     = new THREE.BufferGeometry().setFromPoints(points);
-    const opacity = cfg.group === 'satellite' ? 0.08 : 0.15;
+    const opacity = cfg.group === 'satellite' ? 0.02 : 0.15;
     const mat     = new THREE.LineBasicMaterial({
         color: cfg.color, transparent: true, opacity
     });
