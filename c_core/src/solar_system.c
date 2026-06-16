@@ -7,7 +7,7 @@
 #include "constants.h"
 
 #define DT      1800.0
-#define N_STEPS (48 * 365 * 20)
+#define N_STEPS (48 * 365 * 40)
 #define SAMPLE  48
 
 void run_solar_system(const char *output_file) {
